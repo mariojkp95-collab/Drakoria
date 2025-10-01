@@ -31,8 +31,13 @@ const optSfx = document.getElementById('optSfx');
 const MAX_LVL=99, XP_COIN=5, XP_POTION=2, XP_SLIME=15;
 function expNeededFor(level){ return Math.floor(50 * Math.pow(level, 1.5)); }
 
-// Combat
+// Combat (player)
 const ATTACK_CD_MS=400, ENEMY_BASE_HP=25, PLAYER_ATK_MIN=5, PLAYER_ATK_MAX=9;
+
+// Combat (enemy AI)
+const ENEMY_ATK_MIN = 3;
+const ENEMY_ATK_MAX = 6;
+const ENEMY_ATK_CD_MS = 900; // ogni ~0.9s se adiacenti
 
 // Drops
 const DROP_COIN_CHANCE=0.35, DROP_POTION_CHANCE=0.10;
@@ -62,10 +67,10 @@ function genMapFromSeed(seed){
     if(x===0&&y===0) continue; map[y][x]=1;
   }
 }
-function isWalkable(x,y){return x>=0 && y>=0 && x<cols && y<rows && map[y][x]===0}
+function isWalkableTile(x,y){return x>=0 && y>=0 && x<cols && y<rows && map[y][x]===0}
 
 // Stato & Save
-const SAVE_KEY='dreamtale_save_v3';
+const SAVE_KEY='dreamtale_save_v4';
 const player={x:2,y:2,hp:100,maxHp:100,mp:100,maxMp:100,coins:0,potions:0,lvl:1,exp:0};
 let seed=1337, enemies=[], coins=[], potions=[], lastAttackTs=0;
 let walking=false, pathQueue=[];
@@ -82,12 +87,16 @@ function loadGame(){
   }catch(e){ return false; }
 }
 
+// Helpers occupazione
+function isEnemyAt(x,y){ return enemies.some(e=>e.x===x && e.y===y); }
+function isWalkableDynamic(x,y){ return isWalkableTile(x,y) && !isEnemyAt(x,y); }
+
 // Spawn helpers
 function randEmpty(exclude=[]){
   let tries=0;
   while(tries<500){
     const x=Math.floor(seededRand()*cols), y=Math.floor(seededRand()*rows);
-    if(!isWalkable(x,y)) {tries++;continue}
+    if(!isWalkableTile(x,y)) {tries++;continue}
     if(x===player.x&&y===player.y){tries++;continue}
     if(exclude.some(p=>p.x===x&&p.y===y)){tries++;continue}
     return {x,y};
@@ -96,7 +105,7 @@ function randEmpty(exclude=[]){
 function spawnEnemy(){
   const pos=randEmpty([...enemies,...coins,...potions]);
   const maxHp=ENEMY_BASE_HP+Math.floor(player.lvl*1.2);
-  enemies.push({x:pos.x,y:pos.y,hp:maxHp,maxHp});
+  enemies.push({x:pos.x,y:pos.y,hp:maxHp,maxHp,lastAtk:0});
 }
 function spawnAll(){
   enemies=[]; coins=[]; potions=[];
@@ -126,10 +135,10 @@ function updateHUD(){
   const r=xpRatio(); xpFill.style.width=(r*100)+'%'; xpText.textContent=`EXP ${Math.floor(r*100)}%`;
 }
 
-// Draw (NO scie: resetta alpha e ridisegna tutto ad ogni frame)
+// Draw (niente scie)
 function draw(){
   ctx.save();
-  ctx.globalAlpha=1; // assicurati che non resti trasparenza residua
+  ctx.globalAlpha=1;
   for(let y=0;y<rows;y++){
     for(let x=0;x<cols;x++){
       ctx.drawImage(IMGS.grass,x*tile,y*tile,tile,tile);
@@ -140,7 +149,6 @@ function draw(){
   potions.forEach(o=>ctx.drawImage(IMGS.potion,o.x*tile+8,o.y*tile+4,tile-16,tile-16));
   enemies.forEach(e=>{
     ctx.drawImage(IMGS.enemy,e.x*tile,e.y*tile,tile,tile);
-    // enemy hp bar
     const w=tile-10,h=6,x=e.x*tile+5,y=e.y*tile+4;
     ctx.fillStyle='#0b1224';ctx.fillRect(x,y,w,h);
     const ratio=Math.max(0,e.hp/e.maxHp);
@@ -151,15 +159,20 @@ function draw(){
   ctx.restore();
 }
 
-// Collect & collisions
+// Raccolte & collisioni
 function collectAt(x,y){
   for(let i=coins.length-1;i>=0;i--) if(coins[i].x===x&&coins[i].y===y){ coins.splice(i,1); player.coins++; gainExp(XP_COIN); }
   for(let i=potions.length-1;i>=0;i--) if(potions[i].x===x&&potions[i].y===y){ potions.splice(i,1); player.potions++; player.hp=Math.min(player.maxHp,player.hp+10); gainExp(XP_POTION); }
 }
-function handleEnemyTouch(nx,ny){
+
+function checkEnemyAdjAttack(ts){
+  // se un nemico è adiacente, attacca con cooldown proprio
   enemies.forEach(e=>{
-    if(e.x===nx&&e.y===ny){
-      player.hp=Math.max(0,player.hp-10);
+    const dist = Math.abs(e.x - player.x) + Math.abs(e.y - player.y);
+    if(dist === 1 && (ts - e.lastAtk) >= ENEMY_ATK_CD_MS){
+      e.lastAtk = ts;
+      const dmg = Math.floor(ENEMY_ATK_MIN + Math.random()*(ENEMY_ATK_MAX-ENEMY_ATK_MIN+1));
+      player.hp = Math.max(0, player.hp - dmg);
     }
   });
   if(player.hp<=0) onDeath();
@@ -174,29 +187,31 @@ function attack(enemy,ts){
   lastAttackTs=ts;
   enemy.hp=Math.max(0,enemy.hp-dmgRoll());
   if(enemy.hp===0){
-    // drop
     if(Math.random()<DROP_COIN_CHANCE) coins.push({x:enemy.x,y:enemy.y});
     else if(Math.random()<DROP_POTION_CHANCE) potions.push({x:enemy.x,y:enemy.y});
     gainExp(XP_SLIME);
-    // respawn
     const np=randEmpty([...enemies,...coins,...potions]);
     enemy.x=np.x; enemy.y=np.y;
     enemy.maxHp=ENEMY_BASE_HP+Math.floor(player.lvl*1.2);
     enemy.hp=enemy.maxHp;
+    enemy.lastAtk=0;
   }
   draw(); saveGame();
 }
 
 // Movement
 function stepTo(nx,ny){
-  if(!isWalkable(nx,ny)) return;
+  // blocca movimento su tile nemico
+  if(!isWalkableDynamic(nx,ny)) return;
   player.x=nx; player.y=ny;
   collectAt(nx,ny);
-  handleEnemyTouch(nx,ny);
+  checkEnemyAdjAttack(now());
   updateHUD(); draw(); saveGame();
 }
+
+// BFS path con nemici come ostacoli dinamici
 function findPath(sx,sy,tx,ty){
-  if(!isWalkable(tx,ty)) return null;
+  if(!isWalkableDynamic(tx,ty)) return null; // destinazione occupata => niente
   const key=(x,y)=>`${x},${y}`, q=[{x:sx,y:sy}], prev=new Map(), seen=new Set([key(sx,sy)]);
   const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
   while(q.length){
@@ -208,12 +223,14 @@ function findPath(sx,sy,tx,ty){
     }
     for(const d of dirs){
       const nx=cur.x+d[0], ny=cur.y+d[1], kk=key(nx,ny);
-      if(!isWalkable(nx,ny) || seen.has(kk)) continue;
+      if(!isWalkableDynamic(nx,ny) || seen.has(kk)) continue;
       seen.add(kk); prev.set(kk,cur); q.push({x:nx,y:ny});
     }
   }
   return null;
 }
+
+// Input -> tap/click
 function canvasToTileFromEvent(evt){
   const clientX = evt.clientX ?? (evt.touches?.[0]?.clientX) ?? (evt.changedTouches?.[0]?.clientX);
   const clientY = evt.clientY ?? (evt.touches?.[0]?.clientY) ?? (evt.changedTouches?.[0]?.clientY);
@@ -225,44 +242,57 @@ function handleTap(tx,ty,ts){
   // attacco se adiacente
   const target=enemies.find(e=>e.x===tx&&e.y===ty&&Math.abs(e.x-player.x)+Math.abs(e.y-player.y)===1);
   if(target){ attack(target,ts); return; }
-  // movimento
+  // movimento verso tile libero
   const path=findPath(player.x,player.y,tx,ty);
   if(path && path.length){ pathQueue=path; walking=true; }
 }
+
 c.style.touchAction='manipulation';
-c.addEventListener('pointerdown',e=>{ const {tx,ty,ts}=canvasToTileFromEvent(e); if(!deathScreen.classList.contains('show')) handleTap(tx,ty,ts); });
-c.addEventListener('click',e=>{ const {tx,ty,ts}=canvasToTileFromEvent(e); if(!deathScreen.classList.contains('show')) handleTap(tx,ty,ts); });
-c.addEventListener('touchend',e=>{ const {tx,ty,ts}=canvasToTileFromEvent(e); if(!deathScreen.classList.contains('show')) handleTap(tx,ty,ts); e.preventDefault(); },{passive:false});
+c.addEventListener('pointerdown',e=>{ if(deathScreen.classList.contains('show')) return; const {tx,ty,ts}=canvasToTileFromEvent(e); handleTap(tx,ty,ts); });
+c.addEventListener('click',e=>{ if(deathScreen.classList.contains('show')) return; const {tx,ty,ts}=canvasToTileFromEvent(e); handleTap(tx,ty,ts); });
+c.addEventListener('touchend',e=>{ if(deathScreen.classList.contains('show')) return; const {tx,ty,ts}=canvasToTileFromEvent(e); handleTap(tx,ty,ts); e.preventDefault(); },{passive:false});
 
 // Timers
 setInterval(()=>{
   if(walking && pathQueue.length){
+    // se il prossimo step è ora occupato da un nemico, ricalcola path
+    const peek = pathQueue[0];
+    if(!isWalkableDynamic(peek.x, peek.y)){
+      const dest = pathQueue[pathQueue.length-1];
+      const np = findPath(player.x, player.y, dest.x, dest.y);
+      pathQueue = (np && np.length) ? np : [];
+      if(!pathQueue.length) walking=false;
+      return;
+    }
     const next=pathQueue.shift(); stepTo(next.x,next.y);
     if(!pathQueue.length) walking=false;
   }
+  // i mob attaccano se adiacenti anche fuori dal movimento
+  checkEnemyAdjAttack(now());
 }, 110);
+
 setInterval(()=>{
   enemies.forEach(e=>{
+    // movimento casuale evitando player e altri nemici
     const dirs=[[1,0],[-1,0],[0,1],[0,-1],[0,0]];
     const d=dirs[Math.floor(Math.random()*dirs.length)];
     const nx=e.x+d[0], ny=e.y+d[1];
-    if(isWalkable(nx,ny) && !(nx===player.x && ny===player.y)){ e.x=nx; e.y=ny; }
+    if(isWalkableTile(nx,ny) && !(nx===player.x && ny===player.y) && !enemies.some(o=>o!==e && o.x===nx && o.y===ny)){
+      e.x=nx; e.y=ny;
+    }
   });
   draw();
-}, 1100);
+}, 900);
 
 // Death handling
 function onDeath(){
-  // mostra overlay, blocca input
   deathScreen.classList.add('show');
   walking=false; pathQueue.length=0;
-  // penalità: -10% monete (arrotonda)
   const lost=Math.floor(player.coins*0.10);
   player.coins=Math.max(0,player.coins-lost);
   saveGame();
 }
 btnRespawn.addEventListener('click',()=>{
-  // respawn alla posizione iniziale, HP/MP pieni
   player.hp=player.maxHp; player.mp=player.maxMp;
   player.x=2; player.y=2;
   spawnAll(); updateHUD(); draw(); saveGame();
