@@ -12,6 +12,7 @@ const lvlEl  = document.getElementById('lvl');
 const xpFill = document.getElementById('xpfill');
 const xpText = document.getElementById('xptext');
 const levelUpBanner = document.getElementById('levelUpBanner');
+const tapDebug = document.getElementById('tapDebug');
 
 // Title/Options
 const titleScreen = document.getElementById('titleScreen');
@@ -24,10 +25,7 @@ const optPathHighlight = document.getElementById('optPathHighlight');
 
 // XP/LVL
 const MAX_LVL = 99;
-const XP_COIN = 5;
-const XP_POTION = 2;
-const XP_SLIME = 15;
-
+const XP_COIN = 5, XP_POTION = 2, XP_SLIME = 15;
 function expNeededFor(level){ return Math.floor(50 * Math.pow(level, 1.5)); }
 
 // Combat
@@ -36,8 +34,8 @@ const ENEMY_BASE_HP = 25;
 const PLAYER_ATK_MIN = 5, PLAYER_ATK_MAX = 9;
 
 // Drops
-const DROP_COIN_CHANCE   = 0.35; // 35%
-const DROP_POTION_CHANCE = 0.10; // 10%
+const DROP_COIN_CHANCE = 0.35;
+const DROP_POTION_CHANCE = 0.10;
 
 // Assets
 const IMGS = {};
@@ -49,7 +47,6 @@ const sources = {
   coin: 'assets/coin.png',
   potion: 'assets/potion.png'
 };
-
 function loadImages(srcs){
   const entries = Object.entries(srcs);
   return Promise.all(entries.map(([k, src]) => new Promise((res, rej)=>{
@@ -60,16 +57,15 @@ function loadImages(srcs){
   })));
 }
 
-// === Seeded RNG per mappa (salvata)
+// === Seeded RNG per mappa
 function mulberry32(a){ return function(){ let t = a += 0x6D2B79F5; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; } }
 let seededRand = mulberry32(123456);
 
-// === Mappa: 0 erba, 1 albero. Generata da seed
+// === Mappa
 let map = [];
 function genMapFromSeed(seed){
   seededRand = mulberry32(seed);
   map = Array.from({length:rows}, ()=>Array.from({length:cols}, ()=>0));
-  // genera qualche albero deterministico
   for(let i=0;i<12;i++){
     const x = Math.floor(seededRand()*cols);
     const y = Math.floor(seededRand()*rows);
@@ -77,8 +73,6 @@ function genMapFromSeed(seed){
     map[y][x] = 1;
   }
 }
-
-// Walkable
 function isWalkable(x,y){ return x>=0 && y>=0 && x<cols && y<rows && map[y][x]===0; }
 
 // Stato & salvataggio
@@ -137,20 +131,16 @@ function spawnAll(){
 }
 
 // HUD/XP
-function xpRatio(){
-  if(player.lvl >= MAX_LVL) return 1;
-  return Math.max(0, Math.min(1, player.exp / expNeededFor(player.lvl)));
-}
 let levelUpTimer = 0;
+function xpRatio(){ return (player.lvl>=MAX_LVL) ? 1 : Math.max(0, Math.min(1, player.exp / expNeededFor(player.lvl))); }
 function gainExp(amount){
   if(player.lvl >= MAX_LVL) return;
   player.exp += amount;
   while(player.lvl < MAX_LVL && player.exp >= expNeededFor(player.lvl)){
     player.exp -= expNeededFor(player.lvl);
     player.lvl++;
-    // Banner LEVEL UP
     levelUpBanner.classList.add('show');
-    levelUpTimer = 900; // ms
+    levelUpTimer = 900;
   }
   updateHUD();
   saveGame();
@@ -167,27 +157,22 @@ function updateHUD(){
 }
 
 // Rendering
-let pathQueue = [];
-let walking   = false;
+let pathQueue = [], walking = false;
 
 function draw(){
-  // terreno
   for(let y=0;y<rows;y++){
     for(let x=0;x<cols;x++){
       ctx.drawImage(IMGS.grass, x*tile, y*tile, tile, tile);
       if(map[y][x]===1) ctx.drawImage(IMGS.tree, x*tile, y*tile, tile, tile);
     }
   }
-  // evidenzia path (se abilitato)
   if(optPathHighlight.checked && pathQueue.length){
     ctx.save(); ctx.globalAlpha=.25; ctx.fillStyle='#60a5fa';
     pathQueue.forEach(p=>ctx.fillRect(p.x*tile,p.y*tile,tile,tile));
     ctx.restore();
   }
-  // items
   coins.forEach(o=>ctx.drawImage(IMGS.coin,   o.x*tile+8, o.y*tile+8, tile-16, tile-16));
   potions.forEach(o=>ctx.drawImage(IMGS.potion,o.x*tile+8, o.y*tile+4, tile-16, tile-16));
-  // enemies + Hp bar
   enemies.forEach(e=>{
     ctx.drawImage(IMGS.enemy, e.x*tile, e.y*tile, tile, tile);
     const w = tile-10, h = 6, x = e.x*tile+5, y = e.y*tile+4;
@@ -196,32 +181,18 @@ function draw(){
     ctx.fillStyle = '#ef4444'; ctx.fillRect(x,y,Math.floor(w*ratio),h);
     ctx.strokeStyle = '#1f2a44'; ctx.strokeRect(x,y,w,h);
   });
-  // player
   ctx.drawImage(IMGS.player, player.x*tile, player.y*tile, tile, tile);
 }
 
 // Raccolte & collisioni
 function collectAt(x,y){
-  for(let i=coins.length-1;i>=0;i--){
-    if(coins[i].x===x && coins[i].y===y){
-      coins.splice(i,1);
-      player.coins++; gainExp(XP_COIN);
-    }
-  }
-  for(let i=potions.length-1;i>=0;i--){
-    if(potions[i].x===x && potions[i].y===y){
-      potions.splice(i,1);
-      player.potions++;
-      player.hp = Math.min(player.maxHp, player.hp+10);
-      gainExp(XP_POTION);
-    }
-  }
+  for(let i=coins.length-1;i>=0;i--) if(coins[i].x===x && coins[i].y===y){ coins.splice(i,1); player.coins++; gainExp(XP_COIN); }
+  for(let i=potions.length-1;i>=0;i--) if(potions[i].x===x && potions[i].y===y){ potions.splice(i,1); player.potions++; player.hp = Math.min(player.maxHp, player.hp+10); gainExp(XP_POTION); }
 }
 function handleEnemyTouch(nx,ny){
   enemies.forEach((e)=>{
     if(e.x===nx && e.y===ny){
       player.hp = Math.max(0, player.hp-10);
-      // respawn altrove
       const np = randEmpty([...enemies, ...coins, ...potions]);
       e.x=np.x; e.y=np.y;
     }
@@ -230,19 +201,16 @@ function handleEnemyTouch(nx,ny){
 
 // Attacco
 function now(){ return Date.now(); }
-function canAttack(){ return (now()-lastAttackTs)>=ATTACK_CD_MS; }
+function canAttack(ts){ return (ts - lastAttackTs) >= ATTACK_CD_MS; }
 function dmgRoll(){ return Math.floor(PLAYER_ATK_MIN + Math.random()*(PLAYER_ATK_MAX-PLAYER_ATK_MIN+1)); }
-
-function attack(enemy){
-  if(!canAttack()) return;
-  lastAttackTs = now();
+function attack(enemy, ts){
+  if(!canAttack(ts)) return;
+  lastAttackTs = ts;
   enemy.hp = Math.max(0, enemy.hp - dmgRoll());
   if(enemy.hp===0){
-    // Drop casuale
     if(Math.random() < DROP_COIN_CHANCE) coins.push({x:enemy.x, y:enemy.y});
     else if(Math.random() < DROP_POTION_CHANCE) potions.push({x:enemy.x, y:enemy.y});
     gainExp(XP_SLIME);
-    // Respawn
     const np = randEmpty([...enemies, ...coins, ...potions]);
     enemy.x=np.x; enemy.y=np.y;
     enemy.maxHp = ENEMY_BASE_HP + Math.floor(player.lvl*1.2);
@@ -285,23 +253,67 @@ function findPath(sx,sy,tx,ty){
   return null;
 }
 
-// Click/Touch handler: attacco se tile adiacente con nemico, altrimenti path
-function canvasToTile(clientX, clientY){
-  const r=c.getBoundingClientRect();
-  const sx=(clientX-r.left)*(c.width/r.width);
-  const sy=(clientY-r.top) *(c.height/r.height);
-  return { tx:Math.floor(sx/tile), ty:Math.floor(sy/tile) };
+// --- Coordinate robuste (pointer/click/touch)
+function canvasToTileFromEvent(evt){
+  // supporta pointer, mouse, touch
+  const clientX = evt.clientX ?? (evt.touches && evt.touches[0]?.clientX) ?? (evt.changedTouches && evt.changedTouches[0]?.clientX);
+  const clientY = evt.clientY ?? (evt.touches && evt.touches[0]?.clientY) ?? (evt.changedTouches && evt.changedTouches[0]?.clientY);
+  const r = c.getBoundingClientRect();
+  const sx = (clientX - r.left) * (c.width / r.width);
+  const sy = (clientY - r.top)  * (c.height/ r.height);
+  return { tx: Math.floor(sx / tile), ty: Math.floor(sy / tile), clientX, clientY };
 }
-function handleTap(tx,ty){
+
+// Tap marker + debug testo
+function showTapMarker(x,y,text){
+  if(!tapDebug) return;
+  tapDebug.textContent = text || '';
+  tapDebug.style.display = 'block';
+  clearTimeout(showTapMarker._t);
+  showTapMarker._t = setTimeout(()=> tapDebug.style.display='none', 900);
+}
+
+// Se il path non esiste, prova un singolo passo “greedy” verso la destinazione
+function stepGreedyTowards(tx,ty){
+  let best = {x:player.x, y:player.y}, bestDist = Infinity;
+  const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+  for(const d of dirs){
+    const nx=player.x+d[0], ny=player.y+d[1];
+    if(!isWalkable(nx,ny)) continue;
+    const dist = Math.abs(tx-nx)+Math.abs(ty-ny);
+    if(dist < bestDist){ bestDist = dist; best = {x:nx,y:ny}; }
+  }
+  if(bestDist < Infinity && (best.x!==player.x || best.y!==player.y)) stepTo(best.x,best.y);
+}
+
+// Gestione tap: attacca se adiacente, altrimenti muovi
+function handleTap(tx,ty, ts){
   const target = enemies.find(e => e.x===tx && e.y===ty && Math.abs(e.x-player.x)+Math.abs(e.y-player.y)===1);
-  if(target){ attack(target); return; }
+  if(target){ attack(target, ts); return; }
   const path=findPath(player.x, player.y, tx, ty);
   if(path && path.length){ pathQueue=path; walking=true; }
+  else { stepGreedyTowards(tx,ty); } // fallback
 }
-c.addEventListener('click',  e=>{ const {tx,ty}=canvasToTile(e.clientX,e.clientY); handleTap(tx,ty); });
-c.addEventListener('touchend', e=>{ const t=e.changedTouches[0]; const {tx,ty}=canvasToTile(t.clientX,t.clientY); handleTap(tx,ty); });
 
-// Timer passi + nemici + level up banner timer
+// Listener robusti
+c.style.touchAction = 'manipulation'; // riduce delay click su mobile
+c.addEventListener('pointerdown', (e)=>{
+  const {tx,ty,clientX,clientY} = canvasToTileFromEvent(e);
+  showTapMarker(clientX,clientY,`Tap: ${tx},${ty}`);
+  handleTap(tx,ty, e.timeStamp || Date.now());
+});
+c.addEventListener('click', (e)=>{
+  const {tx,ty,clientX,clientY} = canvasToTileFromEvent(e);
+  showTapMarker(clientX,clientY,`Click: ${tx},${ty}`);
+  handleTap(tx,ty, e.timeStamp || Date.now());
+});
+c.addEventListener('touchend', (e)=>{
+  const {tx,ty} = canvasToTileFromEvent(e);
+  handleTap(tx,ty, e.timeStamp || Date.now());
+  e.preventDefault();
+}, {passive:false});
+
+// Timer passi + nemici + level up banner
 setInterval(()=>{
   if(walking && pathQueue.length){
     const next=pathQueue.shift(); stepTo(next.x,next.y);
@@ -328,9 +340,11 @@ function moveEnemies(){
 }
 setInterval(moveEnemies, 1100);
 
-// Title screen handlers
+// Title screen
 btnStart.addEventListener('click', ()=>{
   titleScreen.classList.remove('show');
+  // per sicurezza, rimuovi dal flusso (evita che intercetti tocchi)
+  titleScreen.style.display = 'none';
 });
 btnOptions.addEventListener('click', ()=> optionsBox.classList.toggle('hidden'));
 btnReset.addEventListener('click', ()=>{
@@ -341,7 +355,7 @@ btnReset.addEventListener('click', ()=>{
 // Avvio
 (async function init(){
   await loadImages(sources);
-  const loaded = loadGame(); // se c'è un salvataggio
+  const loaded = loadGame();
   seed = loaded ? seed : Math.floor(Math.random()*1e9);
   genMapFromSeed(seed);
   spawnAll();
