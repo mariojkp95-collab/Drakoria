@@ -1,0 +1,16 @@
+body {
+  background-color: #202020;
+  color: white;
+  text-align: center;
+  font-family: Arial, sans-serif;
+}
+.title { margin: 10px; }
+#gameCanvas {
+  background: #000;
+  border: 2px solid white;
+}
+#controls button {
+  margin: 5px;
+  padding: 10px;
+  font-size: 18px;
+}
