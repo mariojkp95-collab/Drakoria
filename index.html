@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Dreamtale (Prototype)</title>
-  <link rel="stylesheet" href="style.css?v=7" />
+  <link rel="stylesheet" href="style.css?v=9" />
 </head>
 <body>
 
@@ -20,6 +20,7 @@
       </div>
       <div id="optionsBox" class="options hidden">
         <label><input type="checkbox" id="optSfx" checked> Effetti sonori (placeholder)</label>
+        <label><input type="checkbox" id="optPathHighlight"> Evidenzia percorso (debug)</label>
       </div>
     </div>
   </div>
@@ -45,6 +46,19 @@
     </div>
   </div>
 
+  <!-- Barra laterale destra: minimappa + quest -->
+  <aside id="sidebar">
+    <canvas id="minimap" width="120" height="120" aria-label="Minimappa"></canvas>
+    <div id="questPanel">
+      <h3>Quest</h3>
+      <div class="quest">
+        <div class="q-title">Raccogli 10 monete</div>
+        <div class="q-progress"><div id="qfill"></div></div>
+        <div class="q-meta">Prog: <span id="qcount">0</span>/10 • Ricompensa: +30 EXP</div>
+      </div>
+    </div>
+  </aside>
+
   <main>
     <div id="wrap">
       <canvas id="game" width="640" height="640"></canvas>
@@ -52,10 +66,10 @@
     </div>
   </main>
 
-  <!-- EXP bar a tutta larghezza in basso (alla Nostale) -->
+  <!-- EXP bar a tutta larghezza -->
   <div id="expBar">
     <div id="xpfill"></div>
-    <span id="xptext">0%</span>
+    <span id="xptext">EXP 0%</span>
   </div>
 
   <!-- Overlay Morte -->
@@ -70,6 +84,6 @@
     </div>
   </div>
 
-  <script src="game.js?v=8"></script>
+  <script src="game.js?v=9"></script>
 </body>
 </html>
