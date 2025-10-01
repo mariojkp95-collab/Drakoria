@@ -35,12 +35,6 @@ const btnMenu     = $('btnMenu');
 const btnReset    = $('btnReset');
 const btnRespawn  = $('btnRespawn');
 
-// Attacca i listener del menu
-if (btnStart)   btnStart.onclick   = () => { titleScreen.classList.remove('show'); titleScreen.style.display='none'; };
-if (btnMenu)    btnMenu.onclick    = () => { deathScreen.classList.remove('show'); titleScreen.classList.add('show'); };
-if (btnReset)   btnReset.onclick   = () => { localStorage.removeItem('dreamtale_save_v12_1'); localStorage.removeItem('dreamtale_ui_v12_1'); location.reload(); };
-if (btnRespawn) btnRespawn.onclick = respawn; // funzione definita più sotto
-
 // EXP / LVL
 const MAX_LVL=99, XP_COIN=5, XP_POTION=2, XP_SLIME=15;
 function expNeededFor(level){ return Math.floor(50*Math.pow(level,1.5)); }
@@ -94,10 +88,10 @@ function genMapFromSeed(seed){
 function isWalkableTile(x,y){return x>=0&&y>=0&&x<cols&&y<rows&&map[y][x]===0}
 
 // State & Save
-const SAVE_KEY='dreamtale_save_v12_1';
-const UI_KEY  ='dreamtale_ui_v12_1';
+const SAVE_KEY='dreamtale_save_v13';
+const UI_KEY  ='dreamtale_ui_v13';
 const player={x:2,y:2,hp:100,maxHp:100,mp:100,maxMp:100,coins:0,potions:0,lvl:1,exp:0};
-let seed=1337, enemies=[], coinsArr=[], potions=[], walking=false, pathQueue=[];
+let seed=1337, enemies=[], coins=[], potions=[], walking=false, pathQueue=[];
 
 // UI state save (minimappa/quest visibilità)
 function loadUIState(){
@@ -147,15 +141,15 @@ function randEmpty(exclude=[]){
 
 // Spawns
 function spawnEnemy(){
-  const pos=randEmpty([...enemies,...coinsArr,...potions]);
+  const pos=randEmpty([...enemies,...coins,...potions]);
   const maxHp=ENEMY_BASE_HP+Math.floor(player.lvl*1.2);
   enemies.push({x:pos.x,y:pos.y,hp:maxHp,maxHp,lastAtk:0,ai:'idle',aggroUntil:0,path:[],nextRepath:0});
 }
 function spawnAll(){
-  enemies=[]; coinsArr=[]; potions=[];
+  enemies=[]; coins=[]; potions=[];
   for(let i=0;i<3;i++) spawnEnemy();
-  for(let i=0;i<6;i++) coinsArr.push(randEmpty([...coinsArr,...enemies]));
-  for(let i=0;i<2;i++) potions.push(randEmpty([...coinsArr,...enemies,...potions]));
+  for(let i=0;i<6;i++) coins.push(randEmpty([...coins,...enemies]));
+  for(let i=0;i<2;i++) potions.push(randEmpty([...coins,...enemies,...potions]));
 }
 
 // UI updates
@@ -167,16 +161,10 @@ function updateHUD(){
   coinsEl.textContent=player.coins; potsEl.textContent=player.potions; lvlEl.textContent=player.lvl;
   const need=expNeededFor(player.lvl); const r=(player.lvl>=MAX_LVL)?1:player.exp/need;
   xpFill.style.width=(Math.max(0,Math.min(1,r))*100)+'%'; xpText.textContent=`EXP ${Math.floor(r*100)}%`;
-  qcount.textContent=questCount;
-  qfill.style.width=Math.min(100,(questCount/QUEST_TARGET*100))+'%';
+  qcount.textContent=questCount; qfill.style.width=Math.min(100,(questCount/QUEST_TARGET*100))+'%';
 }
 
-// Quest reset/test
-if (btnQuestReset) btnQuestReset.onclick = ()=>{
-  questCount=0; questDone=false; updateHUD(); saveGame();
-};
-
-// Gain EXP
+// EXP helper
 function gainExp(n){
   if(player.lvl>=MAX_LVL) return;
   player.exp+=n;
@@ -186,7 +174,7 @@ function gainExp(n){
   updateHUD(); saveGame();
 }
 
-// Draw
+// Drawing (clear completo → no scie)
 function draw(){
   ctx.clearRect(0,0,c.width,c.height);
   for(let y=0;y<rows;y++){
@@ -200,7 +188,7 @@ function draw(){
     pathQueue.forEach(p=>ctx.fillRect(p.x*tile,p.y*tile,tile,tile));
     ctx.restore();
   }
-  coinsArr.forEach(o=>ctx.drawImage(IMGS.coin,o.x*tile+8,o.y*tile+8,tile-16,tile-16));
+  coins.forEach(o=>ctx.drawImage(IMGS.coin,o.x*tile+8,o.y*tile+8,tile-16,tile-16));
   potions.forEach(o=>ctx.drawImage(IMGS.potion,o.x*tile+8,o.y*tile+4,tile-16,tile-16));
   enemies.forEach(e=>{
     ctx.drawImage(IMGS.enemy,e.x*tile,e.y*tile,tile,tile);
@@ -213,24 +201,24 @@ function draw(){
   drawMinimap();
 }
 
-// Minimap
+// Minimap draw
 function drawMinimap(){
   if(!mmctx) return;
-  const w=mm.width,h=mm.height,sx=w/cols,sy=h/rows;
+  const w=mm.width, h=mm.height, sx=w/cols, sy=h/rows;
   mmctx.clearRect(0,0,w,h);
   for(let y=0;y<rows;y++){
     for(let x=0;x<cols;x++){
-      mmctx.fillStyle=(map[y][x]===1)?'#334155':'#1e293b';
+      mmctx.fillStyle = (map[y][x]===1) ? '#334155' : '#1e293b';
       mmctx.fillRect(x*sx,y*sy,sx,sy);
     }
   }
-  mmctx.fillStyle='#facc15'; coinsArr.forEach(o=>mmctx.fillRect(o.x*sx+1,o.y*sy+1,sx-2,sy-2));
+  mmctx.fillStyle='#facc15'; coins.forEach(o=>mmctx.fillRect(o.x*sx+1,o.y*sy+1,sx-2,sy-2));
   mmctx.fillStyle='#22c55e'; potions.forEach(o=>mmctx.fillRect(o.x*sx+1,o.y*sy+1,sx-2,sy-2));
   mmctx.fillStyle='#ef4444'; enemies.forEach(e=>mmctx.fillRect(e.x*sx+1,e.y*sy+1,sx-2,sy-2));
   mmctx.fillStyle='#60a5fa'; mmctx.fillRect(player.x*sx+1,player.y*sy+1,sx-2,sy-2);
 }
 
-// Collect
+// Raccolta & quest
 function onCoinPickup(){
   player.coins++; gainExp(XP_COIN);
   if(!questDone){
@@ -240,12 +228,13 @@ function onCoinPickup(){
   updateHUD(); saveGame();
 }
 function onPotionPickup(){ player.potions++; player.hp=Math.min(player.maxHp,player.hp+10); gainExp(XP_POTION); updateHUD(); saveGame(); }
+
 function collectAt(x,y){
-  for(let i=coinsArr.length-1;i>=0;i--) if(coinsArr[i].x===x&&coinsArr[i].y===y){ coinsArr.splice(i,1); onCoinPickup(); }
+  for(let i=coins.length-1;i>=0;i--) if(coins[i].x===x&&coins[i].y===y){ coins.splice(i,1); onCoinPickup(); }
   for(let i=potions.length-1;i>=0;i--) if(potions[i].x===x&&potions[i].y===y){ potions.splice(i,1); onPotionPickup(); }
 }
 
-// Combat
+// Combat (player) + enemy attack
 function now(){return Date.now()}
 function canAttack(ts){return (ts-lastAttackTs)>=ATTACK_CD_MS}
 function dmgRoll(){return Math.floor(PLAYER_ATK_MIN+Math.random()*(PLAYER_ATK_MAX-PLAYER_ATK_MIN+1))}
@@ -254,21 +243,41 @@ function attack(enemy,ts){
   lastAttackTs=ts;
   enemy.hp=Math.max(0,enemy.hp-dmgRoll());
   if(enemy.hp===0){
-    if(Math.random()<DROP_COIN_CHANCE) coinsArr.push({x:enemy.x,y:enemy.y});
+    if(Math.random()<DROP_COIN_CHANCE) coins.push({x:enemy.x,y:enemy.y});
     else if(Math.random()<DROP_POTION_CHANCE) potions.push({x:enemy.x,y:enemy.y});
     gainExp(XP_SLIME);
-    const np=randEmpty([...enemies,...coinsArr,...potions]);
+    const np=randEmpty([...enemies,...coins,...potions]);
     enemy.x=np.x; enemy.y=np.y;
     enemy.maxHp=ENEMY_BASE_HP+Math.floor(player.lvl*1.2); enemy.hp=enemy.maxHp;
   }
   draw(); saveGame();
 }
 
-// Movement
+// Movement + pathfinding
 function stepTo(nx,ny){
-  if(!isWalkableDynamic(nx,ny)) return;
+  if(!isWalkableDynamic(nx,ny)) return; // blocca caselle con nemici
   player.x=nx; player.y=ny; collectAt(nx,ny);
   updateHUD(); draw(); saveGame();
+}
+function findPath(sx,sy,tx,ty){
+  // nemici = ostacoli dinamici
+  if(!isWalkableDynamic(tx,ty)) return null;
+  const key=(x,y)=>`${x},${y}`, q=[{x:sx,y:sy}], prev=new Map(), seen=new Set([key(sx,sy)]);
+  const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+  while(q.length){
+    const cur=q.shift();
+    if(cur.x===tx&&cur.y===ty){
+      const path=[]; let k=key(tx,ty);
+      while(prev.has(k)){ const p=prev.get(k); const [cx,cy]=k.split(',').map(Number); path.push({x:cx,y:cy}); k=key(p.x,p.y); }
+      path.reverse(); return path;
+    }
+    for(const d of dirs){
+      const nx=cur.x+d[0], ny=cur.y+d[1], kk=key(nx,ny);
+      if(!isWalkableDynamic(nx,ny) || seen.has(kk)) continue;
+      seen.add(kk); prev.set(kk,cur); q.push({x:nx, y:ny});
+    }
+  }
+  return null;
 }
 
 // Input
@@ -279,22 +288,95 @@ function canvasToTileFromEvent(evt){
   return {tx:Math.floor(sx/tile), ty:Math.floor(sy/tile), ts:(evt.timeStamp||Date.now())};
 }
 function handleTap(tx,ty,ts){
+  // attacco se tocchi un nemico adiacente
   const target=enemies.find(e=>e.x===tx&&e.y===ty&&Math.abs(e.x-player.x)+Math.abs(e.y-player.y)===1);
   if(target){ attack(target,ts); return; }
-  const path=findPath(player.x,player.y,tx,ty,true);
+  // altrimenti movimento
+  const path=findPath(player.x,player.y,tx,ty);
   if(path && path.length){ pathQueue=path; walking=true; }
 }
+c.style.touchAction='manipulation';
+c.addEventListener('pointerdown',e=>{ if(deathScreen.classList.contains('show')) return; const {tx,ty,ts}=canvasToTileFromEvent(e); handleTap(tx,ty,ts); });
 c.addEventListener('click',e=>{ if(deathScreen.classList.contains('show')) return; const {tx,ty,ts}=canvasToTileFromEvent(e); handleTap(tx,ty,ts); });
+c.addEventListener('touchend',e=>{ if(deathScreen.classList.contains('show')) return; const {tx,ty,ts}=canvasToTileFromEvent(e); handleTap(tx,ty,ts); e.preventDefault(); },{passive:false});
+
+// Enemy adjacent attack each tick
+function enemyAdjAttack(ts){
+  enemies.forEach(e=>{
+    const dist = Math.abs(e.x-player.x)+Math.abs(e.y-player.y);
+    if(dist===1 && (!e.lastAtk || ts - e.lastAtk >= ENEMY_ATK_CD_MS)){
+      e.lastAtk = ts;
+      const dmg = Math.floor(ENEMY_ATK_MIN + Math.random()*(ENEMY_ATK_MAX-ENEMY_ATK_MIN+1));
+      player.hp = Math.max(0, player.hp - dmg);
+      if(player.hp<=0) onDeath();
+    }
+  });
+}
+
+// Timers
+setInterval(()=>{
+  const ts=Date.now();
+  if(walking && pathQueue.length){
+    const peek=pathQueue[0];
+    if(!isWalkableDynamic(peek.x,peek.y)){
+      const dest=pathQueue[pathQueue.length-1];
+      const np=findPath(player.x,player.y,dest.x,dest.y);
+      pathQueue=(np&&np.length)?np:[]; if(!pathQueue.length) walking=false;
+    } else {
+      const next=pathQueue.shift(); stepTo(next.x,next.y);
+      if(!pathQueue.length) walking=false;
+    }
+  }
+  enemyAdjAttack(ts);
+  // movimento casuale nemici (semplice)
+  enemies.forEach(e=>{
+    if(Math.random()<0.3){
+      const dirs=[[1,0],[-1,0],[0,1],[0,-1],[0,0]];
+      const d=dirs[Math.floor(Math.random()*dirs.length)];
+      const nx=e.x+d[0], ny=e.y+d[1];
+      if(isWalkableTile(nx,ny) && !(nx===player.x&&ny===player.y) && !enemies.some(o=>o!==e && o.x===nx && o.y===ny)){
+        e.x=nx; e.y=ny;
+      }
+    }
+  });
+  draw();
+}, 120);
 
 // Death
-function onDeath(){ deathScreen.classList.add('show'); walking=false; pathQueue.length=0; }
-function respawn(){ player.hp=player.maxHp; player.mp=player.maxMp; player.x=2; player.y=2; spawnAll(); updateHUD(); draw(); saveGame(); deathScreen.classList.remove('show'); }
+function onDeath(){
+  deathScreen.classList.add('show');
+  walking=false; pathQueue.length=0;
+  const lost=Math.floor(player.coins*0.10);
+  player.coins=Math.max(0,player.coins-lost);
+  saveGame();
+}
+function respawn(){
+  player.hp=player.maxHp; player.mp=player.maxMp; player.x=2; player.y=2;
+  spawnAll(); updateHUD(); draw(); saveGame();
+  deathScreen.classList.remove('show');
+}
 
-// Toggles
-btnHideMinimap.onclick=()=>{ minimapBox.classList.add('collapsed'); saveUIState(); };
-btnHideQuest.onclick  =()=>{ questPanel.classList.add('collapsed'); saveUIState(); };
-btnToggleMinimap.onclick=()=>{ minimapBox.classList.toggle('collapsed'); saveUIState(); };
-btnToggleQuest.onclick  =()=>{ questPanel.classList.toggle('collapsed'); saveUIState(); };
+// Sidebar toggles + quest reset (con persistenza)
+function bindUI(){
+  btnHideMinimap.addEventListener('click', ()=>{ minimapBox.classList.add('collapsed'); saveUIState(); });
+  btnHideQuest  .addEventListener('click', ()=>{ questPanel.classList.add('collapsed'); saveUIState(); });
+  btnToggleMinimap.addEventListener('click', ()=>{ minimapBox.classList.toggle('collapsed'); saveUIState(); });
+  btnToggleQuest  .addEventListener('click', ()=>{ questPanel.classList.toggle('collapsed'); saveUIState(); });
+  btnQuestReset.addEventListener('click', ()=>{
+    questCount=0; questDone=false; updateHUD(); saveGame();
+  });
+  // Menu
+  btnStart.addEventListener('click', ()=>{
+    titleScreen.classList.remove('show'); titleScreen.style.display='none';
+  });
+  btnReset.addEventListener('click', ()=>{
+    localStorage.removeItem(SAVE_KEY); localStorage.removeItem(UI_KEY); location.reload();
+  });
+  $('btnMenu').addEventListener('click', ()=>{
+    deathScreen.classList.remove('show'); titleScreen.classList.add('show');
+  });
+  $('btnRespawn').addEventListener('click', respawn);
+}
 
 // Init
 (async function(){
@@ -304,5 +386,6 @@ btnToggleQuest.onclick  =()=>{ questPanel.classList.toggle('collapsed'); saveUIS
   seed = loaded ? seed : Math.floor(Math.random()*1e9);
   genMapFromSeed(seed);
   spawnAll();
+  bindUI();
   updateHUD(); draw();
 })();
