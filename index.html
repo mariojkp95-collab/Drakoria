@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Dreamtale (Prototype)</title>
-  <link rel="stylesheet" href="style.css?v=9" />
+  <link rel="stylesheet" href="style.css?v=11" />
 </head>
 <body>
 
@@ -19,13 +19,12 @@
         <button id="btnReset" class="btn danger">🗑 Reset Salvataggio</button>
       </div>
       <div id="optionsBox" class="options hidden">
-        <label><input type="checkbox" id="optSfx" checked> Effetti sonori (placeholder)</label>
         <label><input type="checkbox" id="optPathHighlight"> Evidenzia percorso (debug)</label>
       </div>
     </div>
   </div>
 
-  <!-- HUD stile Nostale -->
+  <!-- HUD in alto -->
   <div id="hudNostale">
     <div class="charbox">
       <div class="portrait"></div>
@@ -40,21 +39,32 @@
       </div>
     </div>
     <div class="quickbar">
-      <button class="slot">I</button><button class="slot">II</button>
-      <button class="slot">III</button><button class="slot">IV</button>
-      <button class="slot">V</button>
+      <button id="btnToggleMinimap" class="slot" title="Mostra/Nascondi minimappa">🗺️</button>
+      <button id="btnToggleQuest" class="slot" title="Mostra/Nascondi quest">📜</button>
     </div>
   </div>
 
-  <!-- Barra laterale destra: minimappa + quest -->
+  <!-- Sidebar destra -->
   <aside id="sidebar">
-    <canvas id="minimap" width="120" height="120" aria-label="Minimappa"></canvas>
-    <div id="questPanel">
-      <h3>Quest</h3>
+    <!-- Minimap panel -->
+    <div id="minimapBox" class="side-panel">
+      <div class="side-head">
+        <span>Minimappa</span>
+        <button id="btnHideMinimap" class="tiny">✖</button>
+      </div>
+      <canvas id="minimap" width="128" height="128" aria-label="Minimappa"></canvas>
+    </div>
+
+    <!-- Quest panel -->
+    <div id="questPanel" class="side-panel">
+      <div class="side-head">
+        <span>Quest</span>
+        <button id="btnHideQuest" class="tiny">✖</button>
+      </div>
       <div class="quest">
-        <div class="q-title">Raccogli 10 monete</div>
+        <div class="q-title">Raccogli <strong id="qtarget">30</strong> monete</div>
         <div class="q-progress"><div id="qfill"></div></div>
-        <div class="q-meta">Prog: <span id="qcount">0</span>/10 • Ricompensa: +30 EXP</div>
+        <div class="q-meta">Prog: <span id="qcount">0</span>/<span id="qmax">30</span> • Ricompensa: +<span id="qreward">30</span> EXP</div>
       </div>
     </div>
   </aside>
@@ -66,13 +76,13 @@
     </div>
   </main>
 
-  <!-- EXP bar a tutta larghezza -->
+  <!-- EXP bar -->
   <div id="expBar">
     <div id="xpfill"></div>
     <span id="xptext">EXP 0%</span>
   </div>
 
-  <!-- Overlay Morte -->
+  <!-- Death -->
   <div id="deathScreen" class="overlay">
     <div class="panel">
       <h2 class="logo">Sei Morto</h2>
@@ -84,6 +94,6 @@
     </div>
   </div>
 
-  <script src="game.js?v=9"></script>
+  <script src="game.js?v=11"></script>
 </body>
 </html>
