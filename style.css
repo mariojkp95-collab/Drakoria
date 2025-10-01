@@ -5,16 +5,14 @@
 *{box-sizing:border-box}
 body{margin:0; color:var(--text); background:linear-gradient(180deg,#0b1020,#0f172a 40%);
      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
-
 main{padding-top:86px; padding-bottom:54px}
 #wrap{max-width:760px;margin:8px auto 22px;background:var(--card);
       border:1px solid var(--border);border-radius:16px;padding:12px;
       box-shadow:0 20px 60px rgba(0,0,0,.25);}
 #game{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--border);
-      background:#0b1224;touch-action:none;}
-.note{color:var(--muted); text-align:center}
+      background:#0b1224;touch-action:none;image-rendering:pixelated}
 
-/* Overlay generico */
+/* Overlay */
 .overlay{position:fixed;inset:0;display:none;place-items:center;
   background:linear-gradient(180deg,rgba(10,14,28,.9),rgba(10,14,28,.95));z-index:999;}
 .overlay.show{display:grid}
@@ -31,8 +29,8 @@ main{padding-top:86px; padding-bottom:54px}
 .options{margin-top:12px;text-align:left;display:grid;gap:8px}
 .hidden{display:none}
 
-/* HUD stile Nostale (top fixed) */
-#hudNostale{position:fixed;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;align-items:center;z-index:10}
+/* HUD Nostale */
+#hudNostale{position:fixed;top:8px;left:8px;right:230px;display:flex;justify-content:space-between;align-items:center;z-index:10}
 .charbox{display:flex;gap:10px;align-items:center;background:rgba(11,18,36,.8);border:1px solid var(--border);border-radius:12px;padding:8px 10px}
 .portrait{width:48px;height:48px;border-radius:8px;background:linear-gradient(180deg,#334155,#0b1224);border:1px solid var(--border)}
 .bars{min-width:240px}
@@ -41,11 +39,19 @@ main{padding-top:86px; padding-bottom:54px}
 .bar.hp #hpfill{position:absolute;inset:0 0 0 auto;background:linear-gradient(90deg,#f87171,var(--hp));width:100%}
 .bar.mp #mpfill{position:absolute;inset:0 0 0 auto;background:linear-gradient(90deg,#60a5fa,var(--mp));width:100%}
 .info{display:flex;gap:10px;font-size:12px;color:#e2e8f0;margin-top:2px}
-
 .quickbar{display:flex;gap:6px}
 .slot{background:#151c33;color:#cbd5e1;border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer}
 
-/* EXP bar bottom full width */
+/* Sidebar destra */
+#sidebar{position:fixed;top:8px;right:8px;width:210px;display:flex;flex-direction:column;gap:10px;z-index:10}
+#minimap{width:210px;height:auto;border-radius:12px;border:1px solid var(--border);background:#0b1224;image-rendering:pixelated}
+#questPanel{background:rgba(11,18,36,.8);border:1px solid var(--border);border-radius:12px;padding:10px}
+#questPanel h3{margin:0 0 6px;font-size:14px;color:#cbd5e1}
+.quest .q-title{font-weight:700;margin-bottom:6px}
+.q-progress{height:10px;background:#111827;border:1px solid #1f2a44;border-radius:999px;overflow:hidden}
+#qfill{height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#7c3aed)}
+
+/* EXP bar */
 #expBar{position:fixed;left:0;right:0;bottom:0;height:18px;background:#0b1224;border-top:1px solid var(--border);z-index:8}
 #xpfill{position:absolute;left:0;top:0;height:100%;width:0%;background:linear-gradient(90deg,var(--xp1),var(--xp2));box-shadow:0 0 12px rgba(124,58,237,.6)}
 #xptext{position:absolute;left:0;right:0;top:0;text-align:center;line-height:18px;font-weight:700;font-size:12px;color:#fff}
