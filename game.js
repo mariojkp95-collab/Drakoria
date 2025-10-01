@@ -15,13 +15,14 @@ const btnHideMinimap=document.getElementById('btnHideMinimap');
 const btnHideQuest=document.getElementById('btnHideQuest');
 const btnToggleMinimap=document.getElementById('btnToggleMinimap');
 const btnToggleQuest=document.getElementById('btnToggleQuest');
+const btnQuestReset=document.getElementById('btnQuestReset');
 
 // Death / Title
 const deathScreen=document.getElementById('deathScreen');
 const titleScreen=document.getElementById('titleScreen');
 document.getElementById('btnStart').onclick=()=>{titleScreen.classList.remove('show');titleScreen.style.display='none';};
 document.getElementById('btnMenu').onclick = ()=>{deathScreen.classList.remove('show');titleScreen.classList.add('show');};
-document.getElementById('btnReset').onclick=()=>{ localStorage.removeItem('dreamtale_save_v11'); location.reload(); };
+document.getElementById('btnReset').onclick=()=>{ localStorage.removeItem('dreamtale_save_v12'); location.reload(); };
 document.getElementById('btnRespawn').onclick=respawn;
 
 // EXP / LVL
@@ -73,10 +74,29 @@ function genMapFromSeed(seed){
 function isWalkableTile(x,y){return x>=0&&y>=0&&x<cols&&y<rows&&map[y][x]===0}
 
 // State & Save
-const SAVE_KEY='dreamtale_save_v11';
+const SAVE_KEY='dreamtale_save_v12';
 const player={x:2,y:2,hp:100,maxHp:100,mp:100,maxMp:100,coins:0,potions:0,lvl:1,exp:0};
-let seed=1337, enemies=[], coins=[], potions=[], lastAttackTs=0;
+let seed=1337, enemies=[], coinsArr=[], potions=[], lastAttackTs=0;
 let walking=false, pathQueue=[];
+
+// UI state save (minimappa/quest visibilità)
+const UI_KEY='dreamtale_ui_v12';
+function loadUIState(){
+  try{
+    const raw=localStorage.getItem(UI_KEY); if(!raw) return;
+    const s=JSON.parse(raw);
+    if(s.minimapCollapsed) minimapBox.classList.add('collapsed');
+    if(s.questCollapsed)   questPanel.classList.add('collapsed');
+  }catch(_){}
+}
+function saveUIState(){
+  try{
+    localStorage.setItem(UI_KEY, JSON.stringify({
+      minimapCollapsed: minimapBox.classList.contains('collapsed'),
+      questCollapsed:   questPanel.classList.contains('collapsed')
+    }));
+  }catch(_){}
+}
 
 function saveGame(){
   const data={seed,player,questCount,questDone};
@@ -108,15 +128,15 @@ function randEmpty(exclude=[]){
 
 // Spawns
 function spawnEnemy(){
-  const pos=randEmpty([...enemies,...coins,...potions]);
+  const pos=randEmpty([...enemies,...coinsArr,...potions]);
   const maxHp=ENEMY_BASE_HP+Math.floor(player.lvl*1.2);
   enemies.push({x:pos.x,y:pos.y,hp:maxHp,maxHp,lastAtk:0,ai:'idle',aggroUntil:0,path:[],nextRepath:0});
 }
 function spawnAll(){
-  enemies=[]; coins=[]; potions=[];
+  enemies=[]; coinsArr=[]; potions=[];
   for(let i=0;i<3;i++) spawnEnemy();
-  for(let i=0;i<6;i++) coins.push(randEmpty([...coins,...enemies]));
-  for(let i=0;i<2;i++) potions.push(randEmpty([...coins,...enemies,...potions]));
+  for(let i=0;i<6;i++) coinsArr.push(randEmpty([...coinsArr,...enemies]));
+  for(let i=0;i<2;i++) potions.push(randEmpty([...coinsArr,...enemies,...potions]));
 }
 
 // UI updates
@@ -158,7 +178,7 @@ function draw(){
     pathQueue.forEach(p=>ctx.fillRect(p.x*tile,p.y*tile,tile,tile));
     ctx.restore();
   }
-  coins.forEach(o=>ctx.drawImage(IMGS.coin,o.x*tile+8,o.y*tile+8,tile-16,tile-16));
+  coinsArr.forEach(o=>ctx.drawImage(IMGS.coin,o.x*tile+8,o.y*tile+8,tile-16,tile-16));
   potions.forEach(o=>ctx.drawImage(IMGS.potion,o.x*tile+8,o.y*tile+4,tile-16,tile-16));
   enemies.forEach(e=>{
     ctx.drawImage(IMGS.enemy,e.x*tile,e.y*tile,tile,tile);
@@ -184,7 +204,7 @@ function drawMinimap(){
       mmctx.fillRect(x*sx,y*sy,sx,sy);
     }
   }
-  mmctx.fillStyle='#facc15'; coins.forEach(o=>mmctx.fillRect(o.x*sx+1,o.y*sy+1,sx-2,sy-2));
+  mmctx.fillStyle='#facc15'; coinsArr.forEach(o=>mmctx.fillRect(o.x*sx+1,o.y*sy+1,sx-2,sy-2));
   mmctx.fillStyle='#22c55e'; potions.forEach(o=>mmctx.fillRect(o.x*sx+1,o.y*sy+1,sx-2,sy-2));
   mmctx.fillStyle='#ef4444'; enemies.forEach(e=>mmctx.fillRect(e.x*sx+1,e.y*sy+1,sx-2,sy-2));
   mmctx.fillStyle='#60a5fa'; mmctx.fillRect(player.x*sx+1,player.y*sy+1,sx-2,sy-2);
@@ -195,14 +215,16 @@ function onCoinPickup(){
   player.coins++; gainExp(XP_COIN);
   if(!questDone){
     questCount = Math.min(QUEST_TARGET, questCount+1);
-    if(questCount===QUEST_TARGET){ questDone=true; gainExp(QUEST_REWARD_XP); }
+    if(questCount===QUEST_TARGET){
+      questDone=true; gainExp(QUEST_REWARD_XP);
+    }
   }
   updateHUD(); saveGame();
 }
 function onPotionPickup(){ player.potions++; player.hp=Math.min(player.maxHp,player.hp+10); gainExp(XP_POTION); updateHUD(); saveGame(); }
 
 function collectAt(x,y){
-  for(let i=coins.length-1;i>=0;i--) if(coins[i].x===x&&coins[i].y===y){ coins.splice(i,1); onCoinPickup(); }
+  for(let i=coinsArr.length-1;i>=0;i--) if(coinsArr[i].x===x&&coinsArr[i].y===y){ coinsArr.splice(i,1); onCoinPickup(); }
   for(let i=potions.length-1;i>=0;i--) if(potions[i].x===x&&potions[i].y===y){ potions.splice(i,1); onPotionPickup(); }
 }
 
@@ -214,7 +236,6 @@ function tryKnockback(fromX,fromY,target){
 }
 
 // Combat
-let lastAttackTs=0;
 function now(){return Date.now()}
 function canAttack(ts){return (ts-lastAttackTs)>=ATTACK_CD_MS}
 function dmgRoll(){return Math.floor(PLAYER_ATK_MIN+Math.random()*(PLAYER_ATK_MAX-PLAYER_ATK_MIN+1))}
@@ -224,16 +245,17 @@ function attack(enemy,ts){
   enemy.hp=Math.max(0,enemy.hp-dmgRoll());
   if(enemy.hp>0) tryKnockback(player.x,player.y,enemy);
   if(enemy.hp===0){
-    if(Math.random()<DROP_COIN_CHANCE) coins.push({x:enemy.x,y:enemy.y});
+    if(Math.random()<DROP_COIN_CHANCE) coinsArr.push({x:enemy.x,y:enemy.y});
     else if(Math.random()<DROP_POTION_CHANCE) potions.push({x:enemy.x,y:enemy.y});
     gainExp(XP_SLIME);
-    const np=randEmpty([...enemies,...coins,...potions]);
+    const np=randEmpty([...enemies,...coinsArr,...potions]);
     enemy.x=np.x; enemy.y=np.y;
     enemy.maxHp=ENEMY_BASE_HP+Math.floor(player.lvl*1.2); enemy.hp=enemy.maxHp;
     enemy.ai='idle'; enemy.aggroUntil=0; enemy.path=[]; enemy.nextRepath=0; enemy.lastAtk=0;
   }
   draw(); saveGame();
 }
+let lastAttackTs=0;
 
 // Movement + pathfinding
 function stepTo(nx,ny){
@@ -257,7 +279,7 @@ function findPath(sx,sy,tx,ty, dynamic=true){
     for(const d of dirs){
       const nx=cur.x+d[0], ny=cur.y+d[1], kk=key(nx,ny);
       if(!ok(nx,ny) || seen.has(kk)) continue;
-      seen.add(kk); prev.set(kk,cur); q.push({x:nx,y:ny});
+      seen.add(kk); prev.set(kk,cur); q.push({x:nx, y:ny});
     }
   }
   return null;
@@ -355,15 +377,21 @@ function respawn(){
   deathScreen.classList.remove('show');
 }
 
-// Sidebar toggles
-btnHideMinimap.onclick=()=> minimapBox.classList.add('collapsed');
-btnHideQuest.onclick  =()=> questPanel.classList.add('collapsed');
-btnToggleMinimap.onclick=()=> minimapBox.classList.toggle('collapsed');
-btnToggleQuest.onclick  =()=> questPanel.classList.toggle('collapsed');
+// Sidebar toggles (funzionanti + persistenza)
+btnHideMinimap.onclick=()=>{ minimapBox.classList.add('collapsed'); saveUIState(); };
+btnHideQuest.onclick  =()=>{ questPanel.classList.add('collapsed'); saveUIState(); };
+btnToggleMinimap.onclick=()=>{ minimapBox.classList.toggle('collapsed'); saveUIState(); };
+btnToggleQuest.onclick  =()=>{ questPanel.classList.toggle('collapsed'); saveUIState(); };
+
+// Reset quest manuale (per testarla più volte)
+btnQuestReset.onclick = ()=>{
+  questCount=0; questDone=false; updateHUD(); saveGame();
+};
 
 // Init
 (async function(){
   await loadImages(sources);
+  loadUIState();
   const loaded=loadGame();
   seed = loaded ? seed : Math.floor(Math.random()*1e9);
   genMapFromSeed(seed);
