@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Dreamtale (Prototype)</title>
-  <link rel="stylesheet" href="style.css?v=11" />
+  <link rel="stylesheet" href="style.css?v=13" />
 </head>
 <body>
 
@@ -15,10 +15,9 @@
       <p class="subtitle">Prototype — tap-to-move RPG</p>
       <div class="menu">
         <button id="btnStart" class="btn primary">▶ Inizia</button>
-        <button id="btnOptions" class="btn">⚙️ Opzioni</button>
         <button id="btnReset" class="btn danger">🗑 Reset Salvataggio</button>
       </div>
-      <div id="optionsBox" class="options hidden">
+      <div class="options">
         <label><input type="checkbox" id="optPathHighlight"> Evidenzia percorso (debug)</label>
       </div>
     </div>
@@ -50,7 +49,7 @@
     <div id="minimapBox" class="side-panel">
       <div class="side-head">
         <span>Minimappa</span>
-        <button id="btnHideMinimap" class="tiny">✖</button>
+        <button id="btnHideMinimap" class="tiny" title="Nascondi">✖</button>
       </div>
       <canvas id="minimap" width="128" height="128" aria-label="Minimappa"></canvas>
     </div>
@@ -59,7 +58,10 @@
     <div id="questPanel" class="side-panel">
       <div class="side-head">
         <span>Quest</span>
-        <button id="btnHideQuest" class="tiny">✖</button>
+        <div>
+          <button id="btnQuestReset" class="tiny" title="Reset quest">↺</button>
+          <button id="btnHideQuest" class="tiny" title="Nascondi">✖</button>
+        </div>
       </div>
       <div class="quest">
         <div class="q-title">Raccogli <strong id="qtarget">30</strong> monete</div>
@@ -94,6 +96,6 @@
     </div>
   </div>
 
-  <script src="game.js?v=12.1"></script>
+  <script src="game.js?v=13"></script>
 </body>
 </html>
