@@ -4,27 +4,80 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Dreamtale (Prototype)</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=5" />
 </head>
 <body>
-  <header><h1>Dreamtale — Prototype</h1></header>
+  <!-- Title Screen -->
+  <div id="titleScreen" class="overlay show">
+    <div class="panel">
+      <h1 class="logo">Dreamtale</h1>
+      <p class="subtitle">Prototype — tap-to-move RPG</p>
+      <div class="menu">
+        <button id="btnStart" class="btn primary">▶ Inizia</button>
+        <button id="btnOptions" class="btn">⚙️ Opzioni</button>
+        <button id="btnReset" class="btn danger">🗑 Reset Salvataggio</button>
+      </div>
+      <div id="optionsBox" class="options hidden">
+        <label><input type="checkbox" id="optSfx" checked> Effetti sonori (placeholder)</label>
+        <label><input type="checkbox" id="optPathHighlight" checked> Evidenzia percorso</label>
+      </div>
+    </div>
+  </div>
+
+  <header>
+    <div class="brand">
+      <strong>Dreamtale</strong>
+      <span class="muted">prototype</span>
+    </div>
+  </header>
+
+  <!-- HUD top -->
+  <div id="hudTop">
+    <div class="hud-left">
+      <div class="stat">
+        <span class="label">LV</span>
+        <span id="lvl" class="value">1</span>
+      </div>
+      <div class="hpbar">
+        <div id="hpfill"></div>
+        <span id="hptext">100/100</span>
+      </div>
+    </div>
+
+    <div class="hud-center">
+      <div class="xpbar fancy">
+        <div id="xpfill"></div>
+        <span id="xptext">0%</span>
+      </div>
+    </div>
+
+    <div class="hud-right">
+      <div class="pills">
+        <div class="pill coin">🪙 <span id="coins">0</span></div>
+        <div class="pill pot">🍵 <span id="pots">0</span></div>
+      </div>
+    </div>
+  </div>
+
   <main>
     <div id="wrap">
-      <canvas id="game" width="640" height="640"></canvas>
-
-      <div id="hud">
-        <div>LV <span id="lvl">1</span></div>
-        <div class="xpbar">
-          <div id="xpfill"></div>
-        </div>
-        <div>HP ❤️ <span id="hp">100</span></div>
-        <div>Monete 🪙 <span id="coins">0</span></div>
-        <div>Pozioni 🍵 <span id="pots">0</span></div>
+      <!-- slot rapidi (mock HUD) -->
+      <div id="quickbar">
+        <button class="slot">I</button>
+        <button class="slot">II</button>
+        <button class="slot">III</button>
+        <button class="slot">IV</button>
       </div>
 
-      <p class="note">Tocca/clicca una casella sulla mappa per muoverti. Raccogli monete e pozioni, evita gli slime. Ottieni EXP per salire di livello (fino a 99).</p>
+      <canvas id="game" width="640" height="640"></canvas>
+
+      <p class="note">Tocca una casella per muoverti. Tappa uno slime adiacente per attaccarlo. Raccogli monete/pozioni. Fino al livello 99.</p>
     </div>
   </main>
-  <script src="game.js?v=3"></script>
+
+  <!-- Banner Level Up -->
+  <div id="levelUpBanner">LEVEL UP!</div>
+
+  <script src="game.js?v=5"></script>
 </body>
 </html>
