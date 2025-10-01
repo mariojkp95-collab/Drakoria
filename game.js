@@ -2,16 +2,15 @@
 const tile=64, cols=10, rows=10;
 const c = document.getElementById('game');
 const ctx = c.getContext('2d');
-
-// Helper
 const $ = (id) => document.getElementById(id);
+const dbg = $('dbg');
 
 // HUD refs
-const hpText = $('hptext'), hpFill = $('hpfill');
-const mpText = $('mptext'), mpFill = $('mpfill');
-const coinsEl= $('coins'),  potsEl = $('pots'),  lvlEl  = $('lvl');
-const xpFill = $('xpfill'), xpText = $('xptext');
-const optPathHighlight = $('optPathHighlight');
+const hpText=$('hptext'), hpFill=$('hpfill');
+const mpText=$('mptext'), mpFill=$('mpfill');
+const coinsEl=$('coins'), potsEl=$('pots'), lvlEl=$('lvl');
+const xpFill=$('xpfill'), xpText=$('xptext');
+const optPathHighlight=$('optPathHighlight');
 
 // Sidebar / toggles
 const minimapBox=$('minimapBox'), questPanel=$('questPanel');
@@ -29,26 +28,24 @@ function expNeededFor(level){ return Math.floor(50*Math.pow(level,1.5)); }
 
 // Combat/player
 const ATTACK_CD_MS=400, ENEMY_BASE_HP=25, PLAYER_ATK_MIN=5, PLAYER_ATK_MAX=9;
-let lastAttackTs = 0;
+let lastAttackTs=0;
 
-// Enemy AI (semplificata, con attacco adiacenza)
+// Enemy (semplice: wander + attacco adiacente)
 const ENEMY_ATK_MIN=3, ENEMY_ATK_MAX=6, ENEMY_ATK_CD_MS=900;
 
 // Drops
 const DROP_COIN_CHANCE=.35, DROP_POTION_CHANCE=.10;
 
-// Quest (30 monete → +30 EXP)
+// Quest
 const QUEST_TARGET=30, QUEST_REWARD_XP=30;
 let questCount=0, questDone=false;
-const qfill=$('qfill'), qcount=$('qcount'), qmax=$('qmax');
-$('qtarget').textContent = QUEST_TARGET;
-qmax.textContent         = QUEST_TARGET;
-$('qreward').textContent = QUEST_REWARD_XP;
+$('qtarget').textContent=QUEST_TARGET; $('qmax').textContent=QUEST_TARGET; $('qreward').textContent=QUEST_REWARD_XP;
+const qfill=$('qfill'), qcount=$('qcount');
 
 // Minimap
-const mm=$('minimap'); const mmctx= mm ? mm.getContext('2d') : null;
+const mm=$('minimap'); const mmctx=mm?mm.getContext('2d'):null;
 
-// ===== Assets (robusti ai 404)
+// ===== Assets (tolleranti ai 404)
 const IMGS={}, sources={
   grass:'assets/grass.png', tree:'assets/tree.png', player:'assets/player.png',
   enemy:'assets/enemy.png', coin:'assets/coin.png', potion:'assets/potion.png'
@@ -63,12 +60,14 @@ function makePlaceholder(w=tile,h=tile,label='?'){
 }
 async function loadImagesSafe(list){
   const entries=Object.entries(list);
-  await Promise.all(entries.map(([k,src])=>new Promise((resolve)=>{
+  const results = await Promise.all(entries.map(([k,src])=>new Promise((resolve)=>{
     const img=new Image();
-    img.onload=()=>{IMGS[k]=img; resolve();};
-    img.onerror=()=>{ console.warn('Asset mancante o non raggiungibile:', src); IMGS[k]=makePlaceholder(tile,tile,k[0]); resolve(); };
+    img.onload=()=>{IMGS[k]=img; resolve({k,ok:true});};
+    img.onerror=()=>{IMGS[k]=makePlaceholder(tile,tile,k[0]); resolve({k,ok:false,src});};
     img.src=src;
   })));
+  const missing = results.filter(r=>!r.ok).map(r=>r.k);
+  if (missing.length) log(`Assets mancanti: ${missing.join(', ')}`);
 }
 
 // ===== RNG & Map
@@ -86,38 +85,17 @@ function genMapFromSeed(seed){
 function isWalkableTile(x,y){return x>=0&&y>=0&&x<cols&&y<rows&&map[y][x]===0}
 
 // ===== State & Save
-const SAVE_KEY='dreamtale_save_v13_1';
-const UI_KEY  ='dreamtale_ui_v13_1';
+const SAVE_KEY='dreamtale_save_v13_2';
+const UI_KEY  ='dreamtale_ui_v13_2';
 const player={x:2,y:2,hp:100,maxHp:100,mp:100,maxMp:100,coins:0,potions:0,lvl:1,exp:0};
 let seed=1337, enemies=[], coins=[], potions=[], walking=false, pathQueue=[];
-
-function loadUIState(){
-  try{
-    const s=JSON.parse(localStorage.getItem(UI_KEY)||'{}');
-    if(s.minimapCollapsed) minimapBox.classList.add('collapsed');
-    if(s.questCollapsed)   questPanel.classList.add('collapsed');
-  }catch(_){}
-}
-function saveUIState(){
-  try{
-    localStorage.setItem(UI_KEY, JSON.stringify({
-      minimapCollapsed: minimapBox.classList.contains('collapsed'),
-      questCollapsed:   questPanel.classList.contains('collapsed')
-    }));
-  }catch(_){}
-}
-function saveGame(){
-  try{ localStorage.setItem(SAVE_KEY, JSON.stringify({seed,player,questCount,questDone})); }catch(_){}
-}
-function loadGame(){
-  try{
-    const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null'); if(!d||!d.player) return false;
-    seed=d.seed??1337; Object.assign(player,d.player);
-    questCount=d.questCount??0; questDone=d.questDone??false; return true;
-  }catch(_){ return false; }
-}
+function loadUIState(){ try{ const s=JSON.parse(localStorage.getItem(UI_KEY)||'{}'); if(s.minimapCollapsed) minimapBox.classList.add('collapsed'); if(s.questCollapsed) questPanel.classList.add('collapsed'); }catch{} }
+function saveUIState(){ try{ localStorage.setItem(UI_KEY, JSON.stringify({ minimapCollapsed:minimapBox.classList.contains('collapsed'), questCollapsed:questPanel.classList.contains('collapsed') })); }catch{} }
+function saveGame(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify({seed,player,questCount,questDone})); }catch{} }
+function loadGame(){ try{ const d=JSON.parse(localStorage.getItem(SAVE_KEY)||'null'); if(!d||!d.player) return false; seed=d.seed??1337; Object.assign(player,d.player); questCount=d.questCount??0; questDone=d.questDone??false; return true; }catch{ return false; } }
 
 // ===== Helpers
+function log(msg){ if(dbg) dbg.textContent=msg; console.log('[DBG]',msg); }
 function isEnemyAt(x,y){ return enemies.some(e=>e.x===x && e.y===y); }
 function isWalkableDynamic(x,y){ return isWalkableTile(x,y) && !isEnemyAt(x,y); }
 function randEmpty(exclude=[]){
@@ -164,7 +142,7 @@ function gainExp(n){
   updateHUD(); saveGame();
 }
 
-// ===== Draw (clear completo → no scie)
+// ===== Draw
 function draw(){
   ctx.clearRect(0,0,c.width,c.height);
   for(let y=0;y<rows;y++){
@@ -189,7 +167,10 @@ function draw(){
   });
   ctx.drawImage(IMGS.player,player.x*tile,player.y*tile,tile,tile);
   drawMinimap();
+  if(dbg) dbg.textContent = `OK v13.2 | map:${map.length}x${map[0]?.length||0} | enemies:${enemies.length} | coins:${coins.length} | walking:${walking} | path:${pathQueue.length}`;
 }
+
+// Minimap
 function drawMinimap(){
   if(!mmctx) return;
   const w=mm.width, h=mm.height, sx=w/cols, sy=h/rows;
@@ -221,7 +202,7 @@ function collectAt(x,y){
   for(let i=potions.length-1;i>=0;i--) if(potions[i].x===x&&potions[i].y===y){ potions.splice(i,1); onPotionPickup(); }
 }
 
-// ===== Combat (player) + enemy attack adiacente
+// ===== Combat
 function now(){return Date.now()}
 function canAttack(ts){return (ts-lastAttackTs)>=ATTACK_CD_MS}
 function dmgRoll(){return Math.floor(PLAYER_ATK_MIN+Math.random()*(PLAYER_ATK_MAX-PLAYER_ATK_MIN+1))}
@@ -338,33 +319,35 @@ function respawn(){
   deathScreen.classList.remove('show');
 }
 
-// ===== Sidebar toggles + quest reset
+// ===== UI bind
 function bindUI(){
   btnHideMinimap.addEventListener('click', ()=>{ minimapBox.classList.add('collapsed'); saveUIState(); });
   btnHideQuest  .addEventListener('click', ()=>{ questPanel.classList.add('collapsed'); saveUIState(); });
   btnToggleMinimap.addEventListener('click', ()=>{ minimapBox.classList.toggle('collapsed'); saveUIState(); });
   btnToggleQuest  .addEventListener('click', ()=>{ questPanel.classList.toggle('collapsed'); saveUIState(); });
   btnQuestReset.addEventListener('click', ()=>{ questCount=0; questDone=false; updateHUD(); saveGame(); });
+
   btnStart.addEventListener('click', ()=>{ titleScreen.classList.remove('show'); titleScreen.style.display='none'; });
   btnReset.addEventListener('click', ()=>{ localStorage.removeItem(SAVE_KEY); localStorage.removeItem(UI_KEY); location.reload(); });
   if(btnMenu) btnMenu.addEventListener('click', ()=>{ deathScreen.classList.remove('show'); titleScreen.classList.add('show'); });
   if(btnRespawn) btnRespawn.addEventListener('click', respawn);
 }
 
-// ===== Init (sempre prosegue anche se gli assets mancano)
+// ===== Error monitor: se qualcosa crasha lo vediamo nel riquadro debug
+window.addEventListener('error', (e)=>{ log('ERR: '+(e?.message||'sconosciuto')); });
+
+// ===== Init (sempre prosegue anche con 404 sugli assets)
 (async function(){
   loadUIState();
   bindUI();
 
-  try{
-    await loadImagesSafe(sources); // NON blocca l'init in caso di 404
-  }catch(e){
-    console.warn('loadImagesSafe: errore inatteso, continuo comunque', e);
-  }
+  try{ await loadImagesSafe(sources); }catch(e){ log('loadImagesSafe fallita (continuo)'); }
 
   const loaded=loadGame();
   seed = loaded ? seed : Math.floor(Math.random()*1e9);
   genMapFromSeed(seed);
   spawnAll();
-  updateHUD(); draw();
+  updateHUD();
+  draw();
+  log('INIT ok — tocca per muoverti');
 })();
