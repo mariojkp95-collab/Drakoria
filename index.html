@@ -11,20 +11,18 @@
   <main>
     <div id="wrap">
       <canvas id="game" width="640" height="640"></canvas>
+
       <div id="hud">
+        <div>LV <span id="lvl">1</span></div>
+        <div class="xpbar">
+          <div id="xpfill"></div>
+        </div>
         <div>HP ❤️ <span id="hp">100</span></div>
         <div>Monete 🪙 <span id="coins">0</span></div>
         <div>Pozioni 🍵 <span id="pots">0</span></div>
       </div>
-      <div id="controls">
-        <button data-dir="up">↑</button>
-        <div class="row">
-          <button data-dir="left">←</button>
-          <button data-dir="down">↓</button>
-          <button data-dir="right">→</button>
-        </div>
-      </div>
-      <p class="note">Muoviti con i pulsanti o con uno swipe sul canvas. Raccogli monete e pozioni, evita gli slime.</p>
+
+      <p class="note">Tocca/clicca una casella sulla mappa per muoverti. Raccogli monete e pozioni, evita gli slime. Ottieni EXP per salire di livello (fino a 99).</p>
     </div>
   </main>
   <script src="game.js"></script>
