@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dreamtale (Prototype)</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header><h1>Dreamtale — Prototype</h1></header>
+  <main>
+    <div id="wrap">
+      <canvas id="game" width="640" height="640"></canvas>
+      <div id="hud">
+        <div>HP ❤️ <span id="hp">100</span></div>
+        <div>Monete 🪙 <span id="coins">0</span></div>
+        <div>Pozioni 🍵 <span id="pots">0</span></div>
+      </div>
+      <div id="controls">
+        <button data-dir="up">↑</button>
+        <div class="row">
+          <button data-dir="left">←</button>
+          <button data-dir="down">↓</button>
+          <button data-dir="right">→</button>
+        </div>
+      </div>
+      <p class="note">Muoviti con i pulsanti o con uno swipe sul canvas. Raccogli monete e pozioni, evita gli slime.</p>
+    </div>
+  </main>
+  <script src="game.js"></script>
+</body>
+</html>
