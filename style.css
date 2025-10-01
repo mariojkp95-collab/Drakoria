@@ -1,6 +1,6 @@
 :root{
   --bg:#0f172a; --card:#0b1224; --border:#1f2a44; --text:#e5e7eb; --muted:#a1a1aa;
-  --hp:#ef4444; --hpbg:#111827; --mp:#3b82f6; --xp1:#22c55e; --xp2:#7c3aed;
+  --hp:#ef4444; --mp:#3b82f6; --xp1:#22c55e; --xp2:#7c3aed;
 }
 *{box-sizing:border-box}
 body{margin:0; color:var(--text); background:linear-gradient(180deg,#0b1020,#0f172a 40%);
@@ -10,7 +10,7 @@ main{padding-top:86px; padding-bottom:54px}
       border:1px solid var(--border);border-radius:16px;padding:12px;
       box-shadow:0 20px 60px rgba(0,0,0,.25);}
 #game{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--border);
-      background:#0b1224;touch-action:none;image-rendering:pixelated}
+      background:#0b1224;touch-action:manipulation;image-rendering:pixelated}
 .note{color:var(--muted); text-align:center}
 
 /* Overlay */
@@ -28,7 +28,6 @@ main{padding-top:86px; padding-bottom:54px}
 .btn.danger{background:#7f1d1d;border-color:#7f1d1d}
 .btn:hover{filter:brightness(1.05)}
 .options{margin-top:12px;text-align:left;display:grid;gap:8px}
-.hidden{display:none}
 
 /* HUD */
 #hudNostale{position:fixed;top:8px;left:8px;right:230px;display:flex;justify-content:space-between;align-items:center;z-index:10}
@@ -37,8 +36,8 @@ main{padding-top:86px; padding-bottom:54px}
 .bars{min-width:240px}
 .bar{position:relative;height:14px;border-radius:999px;border:1px solid rgba(255,255,255,.08);overflow:hidden;margin-bottom:6px;background:#0b1224}
 .bar span{position:absolute;inset:0;text-align:center;line-height:14px;font-size:11px}
-.bar.hp #hpfill{position:absolute;inset:0 0 0 auto;background:linear-gradient(90deg,#f87171,var(--hp));width:100%}
-.bar.mp #mpfill{position:absolute;inset:0 0 0 auto;background:linear-gradient(90deg,#60a5fa,var(--mp));width:100%}
+.bar.hp #hpfill{position:absolute;left:0;top:0;height:100%;background:linear-gradient(90deg,#f87171,var(--hp));width:100%}
+.bar.mp #mpfill{position:absolute;left:0;top:0;height:100%;background:linear-gradient(90deg,#60a5fa,var(--mp));width:100%}
 .info{display:flex;gap:10px;font-size:12px;color:#e2e8f0;margin-top:2px}
 .quickbar{display:flex;gap:6px}
 .slot{background:#151c33;color:#cbd5e1;border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer}
@@ -49,7 +48,7 @@ main{padding-top:86px; padding-bottom:54px}
 .side-head{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid var(--border);font-size:14px}
 .tiny{background:#151c33;color:#cbd5e1;border:1px solid var(--border);border-radius:6px;padding:2px 8px;cursor:pointer}
 #minimap{width:140px;height:auto;margin:10px;border-radius:8px;border:1px solid var(--border);background:#0b1224}
-.side-panel.collapsed canvas,.side-panel.collapsed .quest{display:none}
+.side-panel.collapsed{display:none}
 
 /* Quest UI */
 .quest{padding:10px}
