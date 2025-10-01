@@ -1,7 +1,9 @@
+// --- Config
 const tile = 64;
 const cols = 10;
 const rows = 10;
-const c = document.getElementById('game');
+
+const c   = document.getElementById('game');
 const ctx = c.getContext('2d');
 
 const hpEl   = document.getElementById('hp');
@@ -10,6 +12,17 @@ const potsEl = document.getElementById('pots');
 const lvlEl  = document.getElementById('lvl');
 const xpFill = document.getElementById('xpfill');
 
+// XP config
+const MAX_LVL = 99;
+const XP_COIN = 5;
+const XP_POTION = 2;
+const XP_SLIME = 15;
+
+function expNeededFor(level){
+  return Math.floor(50 * Math.pow(level, 1.5)); // curva dolce
+}
+
+// --- Assets
 const IMGS = {};
 const sources = {
   grass: 'assets/grass.png',
@@ -30,47 +43,20 @@ function loadImages(srcs){
   })));
 }
 
-// --- Mappa (0 = erba, 1 = albero/ostacolo)
+// --- Mappa
 const map = Array.from({length:rows}, ()=>Array.from({length:cols}, ()=>0));
 [[1,3],[2,6],[4,2],[5,5],[6,8],[8,1]].forEach(([y,x])=>map[y][x]=1);
 
-// --- Stato di gioco
-const player = {
-  x:2, y:2, hp:100,
-  coins:0, potions:0,
-  lvl:1, exp:0
-};
-let enemies = [];
-let coins = [];
-let potions = [];
-
-let pathQueue = [];      // percorso corrente (array di tile)
-let walking = false;     // flag camminata
-
-// --- Funzioni EXP & livello
-const MAX_LVL = 99;
-function expNeededFor(level){
-  // curva “dolce”, cresce col livello (puoi ritoccarla)
-  return Math.floor(50 * Math.pow(level, 1.5));
-}
-function gainExp(amount){
-  if(player.lvl >= MAX_LVL) return;
-  player.exp += amount;
-  while(player.exp >= expNeededFor(player.lvl) && player.lvl < MAX_LVL){
-    player.exp -= expNeededFor(player.lvl);
-    player.lvl++;
-  }
-  updateHUD();
-}
-function xpRatio(){
-  if(player.lvl >= MAX_LVL) return 1;
-  return Math.max(0, Math.min(1, player.exp / expNeededFor(player.lvl)));
-}
-
-// --- Utility mappa
 function isWalkable(x,y){
   return x>=0 && y>=0 && x<cols && y<rows && map[y][x]===0;
 }
+
+// --- Stato
+const player = { x:2, y:2, hp:100, coins:0, potions:0, lvl:1, exp:0 };
+let enemies = [];
+let coins   = [];
+let potions = [];
+
 function randEmpty(exclude=[]){
   let tries=0;
   while(tries<500){
@@ -83,6 +69,7 @@ function randEmpty(exclude=[]){
   }
   return {x:0,y:0};
 }
+
 function spawnAll(){
   enemies = []; coins = []; potions = [];
   for(let i=0;i<3;i++) enemies.push(randEmpty([...enemies]));
@@ -90,39 +77,58 @@ function spawnAll(){
   for(let i=0;i<2;i++) potions.push(randEmpty([...coins, ...enemies, ...potions]));
 }
 
+// --- HUD & XP
+function xpRatio(){
+  if (player.lvl >= MAX_LVL) return 1;
+  const need = expNeededFor(player.lvl);
+  return Math.max(0, Math.min(1, player.exp / need));
+}
+
+function gainExp(amount){
+  if (player.lvl >= MAX_LVL) return;
+  player.exp += amount;
+  while (player.lvl < MAX_LVL && player.exp >= expNeededFor(player.lvl)){
+    player.exp -= expNeededFor(player.lvl);
+    player.lvl++;
+  }
+  updateHUD();
+}
+
+function updateHUD(){
+  hpEl.textContent    = player.hp;
+  coinsEl.textContent = player.coins;
+  potsEl.textContent  = player.potions;
+  lvlEl.textContent   = player.lvl;
+  xpFill.style.width  = (xpRatio()*100).toFixed(2) + '%';
+}
+
 // --- Rendering
+let pathQueue = [];   // lista di caselle da percorrere
+let walking   = false;
+
 function draw(){
+  // terreno
   for(let y=0;y<rows;y++){
     for(let x=0;x<cols;x++){
       ctx.drawImage(IMGS.grass, x*tile, y*tile, tile, tile);
       if(map[y][x]===1) ctx.drawImage(IMGS.tree, x*tile, y*tile, tile, tile);
     }
   }
-  // evidenzia il path (opzionale)
-  if(pathQueue.length>0){
+  // path highlight
+  if(pathQueue.length){
     ctx.save();
     ctx.globalAlpha = 0.25;
     ctx.fillStyle = '#60a5fa';
-    pathQueue.forEach(p=>{
-      ctx.fillRect(p.x*tile, p.y*tile, tile, tile);
-    });
+    pathQueue.forEach(p=>ctx.fillRect(p.x*tile, p.y*tile, tile, tile));
     ctx.restore();
   }
-  // oggetti
-  coins.forEach(o=>ctx.drawImage(IMGS.coin, o.x*tile+8, o.y*tile+8, tile-16, tile-16));
-  potions.forEach(o=>ctx.drawImage(IMGS.potion, o.x*tile+8, o.y*tile+4, tile-16, tile-16));
+  // items
+  coins.forEach(o=>ctx.drawImage(IMGS.coin,   o.x*tile+8, o.y*tile+8, tile-16, tile-16));
+  potions.forEach(o=>ctx.drawImage(IMGS.potion,o.x*tile+8, o.y*tile+4, tile-16, tile-16));
   // nemici
   enemies.forEach(e=>ctx.drawImage(IMGS.enemy, e.x*tile, e.y*tile, tile, tile));
   // player
   ctx.drawImage(IMGS.player, player.x*tile, player.y*tile, tile, tile);
-}
-
-function updateHUD(){
-  hpEl.textContent   = player.hp;
-  coinsEl.textContent= player.coins;
-  potsEl.textContent = player.potions;
-  lvlEl.textContent  = player.lvl;
-  xpFill.style.width = (xpRatio()*100).toFixed(2) + '%';
 }
 
 // --- Raccolte & collisioni
@@ -131,7 +137,7 @@ function collectAt(x,y){
     if(coins[i].x===x && coins[i].y===y){
       coins.splice(i,1);
       player.coins++;
-      gainExp(5); // EXP per moneta
+      gainExp(XP_COIN);
     }
   }
   for(let i=potions.length-1;i>=0;i--){
@@ -139,13 +145,15 @@ function collectAt(x,y){
       potions.splice(i,1);
       player.potions++;
       player.hp = Math.min(100, player.hp+10);
-      gainExp(2); // EXP per pozione
+      gainExp(XP_POTION);
     }
   }
 }
-function handleEnemyCollisions(nx,ny){
-  enemies.forEach((e)=>{
+
+function handleEnemyCollision(nx,ny){
+  enemies.forEach(e=>{
     if(e.x===nx && e.y===ny){
+      // contatto: danno e respawn nemico
       player.hp = Math.max(0, player.hp-10);
       const np = randEmpty([...enemies, ...coins, ...potions]);
       e.x = np.x; e.y = np.y;
@@ -153,17 +161,17 @@ function handleEnemyCollisions(nx,ny){
   });
 }
 
-// --- Movimento “step-by-step”
+// --- Movimento step
 function stepTo(nx,ny){
   if(!isWalkable(nx,ny)) return;
   player.x = nx; player.y = ny;
   collectAt(nx,ny);
-  handleEnemyCollisions(nx,ny);
+  handleEnemyCollision(nx,ny);
   updateHUD();
   draw();
 }
 
-// --- Pathfinding (BFS su griglia 4-direzioni)
+// --- Pathfinding (BFS)
 function findPath(sx,sy,tx,ty){
   if(!isWalkable(tx,ty)) return null;
   const key = (x,y)=>`${x},${y}`;
@@ -174,12 +182,12 @@ function findPath(sx,sy,tx,ty){
   while(q.length){
     const cur = q.shift();
     if(cur.x===tx && cur.y===ty){
-      // ricostruisci path
       const path = [];
       let k = key(tx,ty);
       while(prev.has(k)){
         const p = prev.get(k);
-        path.push({x:parseInt(k.split(',')[0]), y:parseInt(k.split(',')[1])});
+        const [cx,cy] = k.split(',').map(Number);
+        path.push({x:cx,y:cy});
         k = key(p.x,p.y);
       }
       path.reverse();
@@ -197,33 +205,47 @@ function findPath(sx,sy,tx,ty){
   return null;
 }
 
-// --- Click/tap per spostarsi
+// --- Click/Touch handler unico (niente swipe)
 function canvasToTile(clientX, clientY){
   const r = c.getBoundingClientRect();
   const sx = (clientX - r.left) * (c.width / r.width);
   const sy = (clientY - r.top)  * (c.height/ r.height);
-  const tx = Math.floor(sx / tile);
-  const ty = Math.floor(sy / tile);
-  return {tx,ty};
+  return { tx: Math.floor(sx / tile), ty: Math.floor(sy / tile) };
 }
-c.addEventListener('click', (e)=>{
-  const {tx,ty} = canvasToTile(e.clientX, e.clientY);
+
+function tryAttackOrMove(tx,ty){
+  // Se clicchi su uno slime ADIACENTE (distanza Manhattan 1) => lo "uccidi", EXP e respawn
+  const adjacent = enemies.find(e => Math.abs(e.x - player.x) + Math.abs(e.y - player.y) === 1 && e.x===tx && e.y===ty);
+  if(adjacent){
+    // kill
+    gainExp(XP_SLIME);
+    // respawn slime altrove
+    const np = randEmpty([...enemies, ...coins, ...potions]);
+    adjacent.x = np.x; adjacent.y = np.y;
+    draw(); // feedback immediato
+    return;
+  }
+
+  // altrimenti pathfinding verso la casella cliccata
   const path = findPath(player.x, player.y, tx, ty);
   if(path && path.length){
-    pathQueue = path; walking = true;
+    pathQueue = path;
+    walking = true;
   }
+}
+
+c.addEventListener('click', (e)=>{
+  const {tx,ty} = canvasToTile(e.clientX, e.clientY);
+  tryAttackOrMove(tx,ty);
 });
-// touch end (per Safari iOS a volte click non basta)
+
 c.addEventListener('touchend', (e)=>{
   const t = e.changedTouches[0];
   const {tx,ty} = canvasToTile(t.clientX, t.clientY);
-  const path = findPath(player.x, player.y, tx, ty);
-  if(path && path.length){
-    pathQueue = path; walking = true;
-  }
+  tryAttackOrMove(tx,ty);
 });
 
-// Esegui i passi del percorso lentamente
+// Timer che esegue i passi del percorso
 setInterval(()=>{
   if(!walking || pathQueue.length===0) return;
   const next = pathQueue.shift();
@@ -231,7 +253,7 @@ setInterval(()=>{
   if(pathQueue.length===0) walking = false;
 }, 160);
 
-// Nemici si muovono casualmente
+// Nemici si muovono
 function moveEnemies(){
   enemies.forEach(e=>{
     const dirs = [[1,0],[-1,0],[0,1],[0,-1],[0,0]];
