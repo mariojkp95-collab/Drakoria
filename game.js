@@ -1,43 +1,42 @@
-// ==== Config base
+// ===== Config base
 const tile=64, cols=10, rows=10;
 const c=document.getElementById('game');
 const ctx=c.getContext('2d');
 
-// HUD refs (stile Nostale)
-const hpText = document.getElementById('hptext');
-const hpFill = document.getElementById('hpfill');
-const mpText = document.getElementById('mptext');
-const mpFill = document.getElementById('mpfill');
-const coinsEl= document.getElementById('coins');
-const potsEl = document.getElementById('pots');
-const lvlEl  = document.getElementById('lvl');
-
-// EXP bar
-const xpFill = document.getElementById('xpfill');
-const xpText = document.getElementById('xptext');
+// HUD refs
+const hpText=document.getElementById('hptext');
+const hpFill=document.getElementById('hpfill');
+const mpText=document.getElementById('mptext');
+const mpFill=document.getElementById('mpfill');
+const coinsEl=document.getElementById('coins');
+const potsEl=document.getElementById('pots');
+const lvlEl=document.getElementById('lvl');
+const xpFill=document.getElementById('xpfill');
+const xpText=document.getElementById('xptext');
 
 // Overlays
-const titleScreen = document.getElementById('titleScreen');
-const deathScreen = document.getElementById('deathScreen');
-const btnStart = document.getElementById('btnStart');
-const btnOptions = document.getElementById('btnOptions');
-const btnReset = document.getElementById('btnReset');
-const btnRespawn = document.getElementById('btnRespawn');
-const btnMenu = document.getElementById('btnMenu');
-const optionsBox = document.getElementById('optionsBox');
-const optSfx = document.getElementById('optSfx');
+const titleScreen=document.getElementById('titleScreen');
+const deathScreen=document.getElementById('deathScreen');
+const btnStart=document.getElementById('btnStart');
+const btnOptions=document.getElementById('btnOptions');
+const btnReset=document.getElementById('btnReset');
+const btnRespawn=document.getElementById('btnRespawn');
+const btnMenu=document.getElementById('btnMenu');
+const optionsBox=document.getElementById('optionsBox');
+const optPathHighlight=document.getElementById('optPathHighlight');
 
 // XP / LVL
 const MAX_LVL=99, XP_COIN=5, XP_POTION=2, XP_SLIME=15;
-function expNeededFor(level){ return Math.floor(50 * Math.pow(level, 1.5)); }
+function expNeededFor(level){ return Math.floor(50*Math.pow(level,1.5)); }
 
 // Combat (player)
 const ATTACK_CD_MS=400, ENEMY_BASE_HP=25, PLAYER_ATK_MIN=5, PLAYER_ATK_MAX=9;
 
-// Combat (enemy AI)
-const ENEMY_ATK_MIN = 3;
-const ENEMY_ATK_MAX = 6;
-const ENEMY_ATK_CD_MS = 900; // ogni ~0.9s se adiacenti
+// AI nemici (aggro/chase)
+const AGGRO_RANGE = 4;
+const AGGRO_MEMORY_MS = 2500;   // quanto “mantiene” l’aggro dopo aver perso vista
+const ENEMY_REPATH_MS = 400;    // ogni quanto ricalcola il path in aggro
+const ENEMY_ATK_MIN=3, ENEMY_ATK_MAX=6, ENEMY_ATK_CD_MS=900;
 
 // Drops
 const DROP_COIN_CHANCE=0.35, DROP_POTION_CHANCE=0.10;
@@ -67,23 +66,29 @@ function genMapFromSeed(seed){
     if(x===0&&y===0) continue; map[y][x]=1;
   }
 }
-function isWalkableTile(x,y){return x>=0 && y>=0 && x<cols && y<rows && map[y][x]===0}
+function isWalkableTile(x,y){ return x>=0&&y>=0&&x<cols&&y<rows&&map[y][x]===0 }
 
 // Stato & Save
-const SAVE_KEY='dreamtale_save_v4';
+const SAVE_KEY='dreamtale_save_v5';
 const player={x:2,y:2,hp:100,maxHp:100,mp:100,maxMp:100,coins:0,potions:0,lvl:1,exp:0};
 let seed=1337, enemies=[], coins=[], potions=[], lastAttackTs=0;
-let walking=false, pathQueue=[];
+let walking=false, pathQueue=[], lastNow=Date.now();
+
+// Quest: “Raccogli 10 monete”
+const QUEST_TARGET=10, QUEST_REWARD_XP=30;
+let questCount=0;
 
 function saveGame(){
-  const data={ seed, player:{x:player.x,y:player.y,hp:player.hp,maxHp:player.maxHp,mp:player.mp,maxMp:player.maxMp,coins:player.coins,potions:player.potions,lvl:player.lvl,exp:player.exp} };
+  const data={ seed, player, questCount };
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(data)); }catch(e){}
 }
 function loadGame(){
   try{
     const raw=localStorage.getItem(SAVE_KEY); if(!raw) return false;
     const data=JSON.parse(raw); if(!data||!data.player) return false;
-    seed=data.seed??1337; Object.assign(player,data.player); return true;
+    seed=data.seed??1337; Object.assign(player,data.player);
+    questCount=data.questCount??0;
+    return true;
   }catch(e){ return false; }
 }
 
@@ -98,14 +103,14 @@ function randEmpty(exclude=[]){
     const x=Math.floor(seededRand()*cols), y=Math.floor(seededRand()*rows);
     if(!isWalkableTile(x,y)) {tries++;continue}
     if(x===player.x&&y===player.y){tries++;continue}
-    if(exclude.some(p=>p.x===x&&p.y===y)){tries++;continue}
+    if(exclude.some(p=>p.x===x&&p.y===y)) {tries++;continue}
     return {x,y};
   } return {x:0,y:0};
 }
 function spawnEnemy(){
   const pos=randEmpty([...enemies,...coins,...potions]);
   const maxHp=ENEMY_BASE_HP+Math.floor(player.lvl*1.2);
-  enemies.push({x:pos.x,y:pos.y,hp:maxHp,maxHp,lastAtk:0});
+  enemies.push({x:pos.x,y:pos.y,hp:maxHp,maxHp,lastAtk:0,ai:'idle',aggroUntil:0,path:[],nextRepath:0});
 }
 function spawnAll(){
   enemies=[]; coins=[]; potions=[];
@@ -114,41 +119,53 @@ function spawnAll(){
   for(let i=0;i<2;i++) potions.push(randEmpty([...coins,...enemies,...potions]));
 }
 
-// HUD
-function xpRatio(){return (player.lvl>=MAX_LVL)?1:Math.max(0,Math.min(1,player.exp/expNeededFor(player.lvl)))}
+// HUD / XP / Quest
+function expNeededForLvl(l){return expNeededFor(l)}
+function xpRatio(){ return (player.lvl>=MAX_LVL)?1:Math.max(0,Math.min(1,player.exp/expNeededForLvl(player.lvl))) }
 function gainExp(n){
   if(player.lvl>=MAX_LVL) return;
   player.exp+=n;
-  while(player.lvl<MAX_LVL && player.exp>=expNeededFor(player.lvl)){
-    player.exp-=expNeededFor(player.lvl); player.lvl++;
+  while(player.lvl<MAX_LVL && player.exp>=expNeededForLvl(player.lvl)){
+    player.exp-=expNeededForLvl(player.lvl); player.lvl++;
   }
   updateHUD(); saveGame();
 }
 function updateHUD(){
   const hpR=Math.max(0,Math.min(1,player.hp/player.maxHp));
   const mpR=Math.max(0,Math.min(1,player.mp/player.maxMp));
-  hpText.textContent=`${player.hp}/${player.maxHp}`;
-  hpFill.style.width=`${hpR*100}%`;
-  mpText.textContent=`${player.mp}/${player.maxMp}`;
-  mpFill.style.width=`${mpR*100}%`;
+  hpText.textContent=`${player.hp}/${player.maxHp}`; hpFill.style.width=`${hpR*100}%`;
+  mpText.textContent=`${player.mp}/${player.maxMp}`; mpFill.style.width=`${mpR*100}%`;
   coinsEl.textContent=player.coins; potsEl.textContent=player.potions; lvlEl.textContent=player.lvl;
   const r=xpRatio(); xpFill.style.width=(r*100)+'%'; xpText.textContent=`EXP ${Math.floor(r*100)}%`;
+  // quest
+  const qfill=document.getElementById('qfill');
+  const qcount=document.getElementById('qcount');
+  qcount.textContent=questCount; qfill.style.width=Math.min(100,(questCount/QUEST_TARGET*100))+'%';
 }
 
-// Draw (niente scie)
+// Draw (clear completo → nessuna scia)
 function draw(){
   ctx.save();
   ctx.globalAlpha=1;
+  ctx.globalCompositeOperation='source-over';
+  ctx.clearRect(0,0,c.width,c.height);
   for(let y=0;y<rows;y++){
     for(let x=0;x<cols;x++){
       ctx.drawImage(IMGS.grass,x*tile,y*tile,tile,tile);
       if(map[y][x]===1) ctx.drawImage(IMGS.tree,x*tile,y*tile,tile,tile);
     }
   }
+  // opzionale: evidenzia path
+  if(optPathHighlight && optPathHighlight.checked && pathQueue.length){
+    ctx.save(); ctx.globalAlpha=.25; ctx.fillStyle='#60a5fa';
+    pathQueue.forEach(p=>ctx.fillRect(p.x*tile,p.y*tile,tile,tile));
+    ctx.restore();
+  }
   coins.forEach(o=>ctx.drawImage(IMGS.coin,o.x*tile+8,o.y*tile+8,tile-16,tile-16));
   potions.forEach(o=>ctx.drawImage(IMGS.potion,o.x*tile+8,o.y*tile+4,tile-16,tile-16));
   enemies.forEach(e=>{
     ctx.drawImage(IMGS.enemy,e.x*tile,e.y*tile,tile,tile);
+    // enemy hp bar
     const w=tile-10,h=6,x=e.x*tile+5,y=e.y*tile+4;
     ctx.fillStyle='#0b1224';ctx.fillRect(x,y,w,h);
     const ratio=Math.max(0,e.hp/e.maxHp);
@@ -157,28 +174,65 @@ function draw(){
   });
   ctx.drawImage(IMGS.player,player.x*tile,player.y*tile,tile,tile);
   ctx.restore();
+  drawMinimap();
 }
 
-// Raccolte & collisioni
-function collectAt(x,y){
-  for(let i=coins.length-1;i>=0;i--) if(coins[i].x===x&&coins[i].y===y){ coins.splice(i,1); player.coins++; gainExp(XP_COIN); }
-  for(let i=potions.length-1;i>=0;i--) if(potions[i].x===x&&potions[i].y===y){ potions.splice(i,1); player.potions++; player.hp=Math.min(player.maxHp,player.hp+10); gainExp(XP_POTION); }
-}
-
-function checkEnemyAdjAttack(ts){
-  // se un nemico è adiacente, attacca con cooldown proprio
-  enemies.forEach(e=>{
-    const dist = Math.abs(e.x - player.x) + Math.abs(e.y - player.y);
-    if(dist === 1 && (ts - e.lastAtk) >= ENEMY_ATK_CD_MS){
-      e.lastAtk = ts;
-      const dmg = Math.floor(ENEMY_ATK_MIN + Math.random()*(ENEMY_ATK_MAX-ENEMY_ATK_MIN+1));
-      player.hp = Math.max(0, player.hp - dmg);
+// Minimap
+const mm=document.getElementById('minimap');
+const mmctx=mm.getContext('2d');
+function drawMinimap(){
+  const w=mm.width, h=mm.height, cw=cols, rh=rows;
+  mmctx.clearRect(0,0,w,h);
+  const sx=w/cw, sy=h/rh;
+  for(let y=0;y<rows;y++){
+    for(let x=0;x<cols;x++){
+      mmctx.fillStyle = (map[y][x]===1) ? '#334155' : '#1e293b';
+      mmctx.fillRect(x*sx,y*sy,sx,sy);
     }
-  });
-  if(player.hp<=0) onDeath();
+  }
+  // items
+  mmctx.fillStyle='#facc15'; coins.forEach(o=>mmctx.fillRect(o.x*sx+1,o.y*sy+1,sx-2,sy-2));
+  mmctx.fillStyle='#22c55e'; potions.forEach(o=>mmctx.fillRect(o.x*sx+1,o.y*sy+1,sx-2,sy-2));
+  // enemies
+  mmctx.fillStyle='#ef4444'; enemies.forEach(e=>mmctx.fillRect(e.x*sx+1,e.y*sy+1,sx-2,sy-2));
+  // player
+  mmctx.fillStyle='#60a5fa'; mmctx.fillRect(player.x*sx+1,player.y*sy+1,sx-2,sy-2);
 }
 
-// Combat
+// Collect & collisions
+function collectAt(x,y){
+  for(let i=coins.length-1;i>=0;i--) if(coins[i].x===x&&coins[i].y===y){
+    coins.splice(i,1); player.coins++; questCount=Math.min(QUEST_TARGET,questCount+1); updateHUD();
+    if(questCount===QUEST_TARGET){ gainExp(QUEST_REWARD_XP); } else { saveGame(); }
+    gainExp(XP_COIN);
+  }
+  for(let i=potions.length-1;i>=0;i--) if(potions[i].x===x&&potions[i].y===y){
+    potions.splice(i,1); player.potions++; player.hp=Math.min(player.maxHp,player.hp+10); gainExp(XP_POTION);
+  }
+}
+
+// Knockback helper
+function tryKnockback(fromX,fromY, target){
+  const dx = target.x - fromX;
+  const dy = target.y - fromY;
+  const stepX = Math.sign(dx), stepY = Math.sign(dy);
+  const kx = target.x + stepX, ky = target.y + stepY;
+  if(isWalkableDynamic(kx,ky)){ target.x=kx; target.y=ky; }
+}
+
+// Enemy melee on adjacency (with cooldown)
+function enemyAdjAttack(e, ts){
+  if(Math.abs(e.x-player.x)+Math.abs(e.y-player.y)===1 && (ts - e.lastAtk)>=ENEMY_ATK_CD_MS){
+    e.lastAtk=ts;
+    const dmg = Math.floor(ENEMY_ATK_MIN + Math.random()*(ENEMY_ATK_MAX-ENEMY_ATK_MIN+1));
+    player.hp = Math.max(0, player.hp - dmg);
+    // knockback player
+    tryKnockback(e.x, e.y, player);
+    if(player.hp<=0) onDeath();
+  }
+}
+
+// Combat (player)
 function now(){return Date.now()}
 function canAttack(ts){return (ts-lastAttackTs)>=ATTACK_CD_MS}
 function dmgRoll(){return Math.floor(PLAYER_ATK_MIN+Math.random()*(PLAYER_ATK_MAX-PLAYER_ATK_MIN+1))}
@@ -186,6 +240,8 @@ function attack(enemy,ts){
   if(!canAttack(ts)) return;
   lastAttackTs=ts;
   enemy.hp=Math.max(0,enemy.hp-dmgRoll());
+  // knockback nemico se sopravvive
+  if(enemy.hp>0) tryKnockback(player.x, player.y, enemy);
   if(enemy.hp===0){
     if(Math.random()<DROP_COIN_CHANCE) coins.push({x:enemy.x,y:enemy.y});
     else if(Math.random()<DROP_POTION_CHANCE) potions.push({x:enemy.x,y:enemy.y});
@@ -194,24 +250,23 @@ function attack(enemy,ts){
     enemy.x=np.x; enemy.y=np.y;
     enemy.maxHp=ENEMY_BASE_HP+Math.floor(player.lvl*1.2);
     enemy.hp=enemy.maxHp;
-    enemy.lastAtk=0;
+    enemy.ai='idle'; enemy.aggroUntil=0; enemy.path=[]; enemy.nextRepath=0; enemy.lastAtk=0;
   }
   draw(); saveGame();
 }
 
 // Movement
 function stepTo(nx,ny){
-  // blocca movimento su tile nemico
   if(!isWalkableDynamic(nx,ny)) return;
   player.x=nx; player.y=ny;
   collectAt(nx,ny);
-  checkEnemyAdjAttack(now());
   updateHUD(); draw(); saveGame();
 }
 
-// BFS path con nemici come ostacoli dinamici
-function findPath(sx,sy,tx,ty){
-  if(!isWalkableDynamic(tx,ty)) return null; // destinazione occupata => niente
+// BFS path
+function findPath(sx,sy,tx,ty, dynamic=true){
+  const ok = dynamic ? isWalkableDynamic : isWalkableTile;
+  if(!ok(tx,ty)) return null;
   const key=(x,y)=>`${x},${y}`, q=[{x:sx,y:sy}], prev=new Map(), seen=new Set([key(sx,sy)]);
   const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
   while(q.length){
@@ -223,14 +278,14 @@ function findPath(sx,sy,tx,ty){
     }
     for(const d of dirs){
       const nx=cur.x+d[0], ny=cur.y+d[1], kk=key(nx,ny);
-      if(!isWalkableDynamic(nx,ny) || seen.has(kk)) continue;
+      if(!ok(nx,ny) || seen.has(kk)) continue;
       seen.add(kk); prev.set(kk,cur); q.push({x:nx,y:ny});
     }
   }
   return null;
 }
 
-// Input -> tap/click
+// Input
 function canvasToTileFromEvent(evt){
   const clientX = evt.clientX ?? (evt.touches?.[0]?.clientX) ?? (evt.changedTouches?.[0]?.clientX);
   const clientY = evt.clientY ?? (evt.touches?.[0]?.clientY) ?? (evt.changedTouches?.[0]?.clientY);
@@ -239,50 +294,82 @@ function canvasToTileFromEvent(evt){
   return {tx:Math.floor(sx/tile), ty:Math.floor(sy/tile), ts:(evt.timeStamp||Date.now())};
 }
 function handleTap(tx,ty,ts){
-  // attacco se adiacente
   const target=enemies.find(e=>e.x===tx&&e.y===ty&&Math.abs(e.x-player.x)+Math.abs(e.y-player.y)===1);
   if(target){ attack(target,ts); return; }
-  // movimento verso tile libero
-  const path=findPath(player.x,player.y,tx,ty);
+  const path=findPath(player.x,player.y,tx,ty,true);
   if(path && path.length){ pathQueue=path; walking=true; }
 }
-
 c.style.touchAction='manipulation';
 c.addEventListener('pointerdown',e=>{ if(deathScreen.classList.contains('show')) return; const {tx,ty,ts}=canvasToTileFromEvent(e); handleTap(tx,ty,ts); });
 c.addEventListener('click',e=>{ if(deathScreen.classList.contains('show')) return; const {tx,ty,ts}=canvasToTileFromEvent(e); handleTap(tx,ty,ts); });
 c.addEventListener('touchend',e=>{ if(deathScreen.classList.contains('show')) return; const {tx,ty,ts}=canvasToTileFromEvent(e); handleTap(tx,ty,ts); e.preventDefault(); },{passive:false});
 
-// Timers
+// Enemy AI tick
+function enemyAITick(ts){
+  enemies.forEach(e=>{
+    const dist = Math.abs(e.x-player.x)+Math.abs(e.y-player.y);
+
+    // Aggro acquisition / memory
+    if(dist <= AGGRO_RANGE){ e.ai='aggro'; e.aggroUntil = ts + AGGRO_MEMORY_MS; }
+    else if(e.ai==='aggro' && ts > e.aggroUntil){ e.ai='idle'; e.path=[]; }
+
+    // Attack if adjacent
+    enemyAdjAttack(e, ts);
+
+    // Movement
+    if(e.ai==='aggro'){
+      if(ts >= e.nextRepath){
+        // target: una casella adiacente al player che sia libera
+        const candidates = [[1,0],[-1,0],[0,1],[0,-1]]
+          .map(d=>({x:player.x-d[0], y:player.y-d[1]}))
+          .filter(p=>isWalkableTile(p.x,p.y) && !isEnemyAt(p.x,p.y) && !(p.x===player.x && p.y===player.y));
+        let target = candidates.find(p=>true) || {x:player.x,y:player.y};
+        e.path = findPath(e.x,e.y,target.x,target.y,false) || [];
+        e.nextRepath = ts + ENEMY_REPATH_MS;
+      }
+      if(e.path && e.path.length){
+        const step=e.path.shift();
+        // evita collisioni con player/altri nemici al momento del passo
+        if(isWalkableTile(step.x, step.y) && !(step.x===player.x && step.y===player.y) && !enemies.some(o=>o!==e && o.x===step.x && o.y===step.y)){
+          e.x=step.x; e.y=step.y;
+        } else {
+          e.path=[]; // ricalcolerà al prossimo tick
+        }
+      }
+    } else {
+      // idle wander
+      if(Math.random()<0.4){
+        const dirs=[[1,0],[-1,0],[0,1],[0,-1],[0,0]];
+        const d=dirs[Math.floor(Math.random()*dirs.length)];
+        const nx=e.x+d[0], ny=e.y+d[1];
+        if(isWalkableTile(nx,ny) && !(nx===player.x&&ny===player.y) && !enemies.some(o=>o!==e && o.x===nx && o.y===ny)){
+          e.x=nx; e.y=ny;
+        }
+      }
+    }
+  });
+}
+
+// Timers principali
 setInterval(()=>{
+  const ts=Date.now();
+  // movimento player step-by-step
   if(walking && pathQueue.length){
-    // se il prossimo step è ora occupato da un nemico, ricalcola path
     const peek = pathQueue[0];
     if(!isWalkableDynamic(peek.x, peek.y)){
       const dest = pathQueue[pathQueue.length-1];
-      const np = findPath(player.x, player.y, dest.x, dest.y);
+      const np = findPath(player.x, player.y, dest.x, dest.y, true);
       pathQueue = (np && np.length) ? np : [];
       if(!pathQueue.length) walking=false;
-      return;
+    } else {
+      const next=pathQueue.shift(); stepTo(next.x,next.y);
+      if(!pathQueue.length) walking=false;
     }
-    const next=pathQueue.shift(); stepTo(next.x,next.y);
-    if(!pathQueue.length) walking=false;
   }
-  // i mob attaccano se adiacenti anche fuori dal movimento
-  checkEnemyAdjAttack(now());
-}, 110);
-
-setInterval(()=>{
-  enemies.forEach(e=>{
-    // movimento casuale evitando player e altri nemici
-    const dirs=[[1,0],[-1,0],[0,1],[0,-1],[0,0]];
-    const d=dirs[Math.floor(Math.random()*dirs.length)];
-    const nx=e.x+d[0], ny=e.y+d[1];
-    if(isWalkableTile(nx,ny) && !(nx===player.x && ny===player.y) && !enemies.some(o=>o!==e && o.x===nx && o.y===ny)){
-      e.x=nx; e.y=ny;
-    }
-  });
+  // AI nemici + attacchi
+  enemyAITick(ts);
   draw();
-}, 900);
+}, 120);
 
 // Death handling
 function onDeath(){
@@ -298,10 +385,7 @@ btnRespawn.addEventListener('click',()=>{
   spawnAll(); updateHUD(); draw(); saveGame();
   deathScreen.classList.remove('show');
 });
-btnMenu.addEventListener('click',()=>{
-  deathScreen.classList.remove('show');
-  titleScreen.classList.add('show');
-});
+btnMenu.addEventListener('click',()=>{ deathScreen.classList.remove('show'); titleScreen.classList.add('show'); });
 
 // Menu
 btnStart.addEventListener('click',()=>{ titleScreen.classList.remove('show'); titleScreen.style.display='none'; });
