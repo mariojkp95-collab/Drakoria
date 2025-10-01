@@ -11,13 +11,14 @@ main{padding-top:86px; padding-bottom:54px}
       box-shadow:0 20px 60px rgba(0,0,0,.25);}
 #game{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--border);
       background:#0b1224;touch-action:none;image-rendering:pixelated}
+.note{color:var(--muted); text-align:center}
 
 /* Overlay */
 .overlay{position:fixed;inset:0;display:none;place-items:center;
   background:linear-gradient(180deg,rgba(10,14,28,.9),rgba(10,14,28,.95));z-index:999;}
 .overlay.show{display:grid}
 .panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px;
-  width:min(90vw,520px);text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.45);}
+  width:min(90vw,560px);text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.45);}
 .logo{margin:6px 0 8px;font-size:34px}
 .subtitle{margin:0 0 14px;color:var(--muted)}
 .menu{display:flex;flex-direction:column;gap:10px;margin:10px 0}
@@ -29,7 +30,7 @@ main{padding-top:86px; padding-bottom:54px}
 .options{margin-top:12px;text-align:left;display:grid;gap:8px}
 .hidden{display:none}
 
-/* HUD Nostale */
+/* HUD */
 #hudNostale{position:fixed;top:8px;left:8px;right:230px;display:flex;justify-content:space-between;align-items:center;z-index:10}
 .charbox{display:flex;gap:10px;align-items:center;background:rgba(11,18,36,.8);border:1px solid var(--border);border-radius:12px;padding:8px 10px}
 .portrait{width:48px;height:48px;border-radius:8px;background:linear-gradient(180deg,#334155,#0b1224);border:1px solid var(--border)}
@@ -42,14 +43,20 @@ main{padding-top:86px; padding-bottom:54px}
 .quickbar{display:flex;gap:6px}
 .slot{background:#151c33;color:#cbd5e1;border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer}
 
-/* Sidebar destra */
+/* Sidebar destra + pannelli collassabili */
 #sidebar{position:fixed;top:8px;right:8px;width:210px;display:flex;flex-direction:column;gap:10px;z-index:10}
-#minimap{width:210px;height:auto;border-radius:12px;border:1px solid var(--border);background:#0b1224;image-rendering:pixelated}
-#questPanel{background:rgba(11,18,36,.8);border:1px solid var(--border);border-radius:12px;padding:10px}
-#questPanel h3{margin:0 0 6px;font-size:14px;color:#cbd5e1}
-.quest .q-title{font-weight:700;margin-bottom:6px}
+.side-panel{background:rgba(11,18,36,.8);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.side-head{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid var(--border);font-size:14px}
+.tiny{background:#151c33;color:#cbd5e1;border:1px solid var(--border);border-radius:6px;padding:2px 8px;cursor:pointer}
+#minimap{width:140px;height:auto;margin:10px;border-radius:8px;border:1px solid var(--border);background:#0b1224}
+.side-panel.collapsed canvas,.side-panel.collapsed .quest{display:none}
+
+/* Quest UI */
+.quest{padding:10px}
+.q-title{font-weight:700;margin-bottom:6px}
 .q-progress{height:10px;background:#111827;border:1px solid #1f2a44;border-radius:999px;overflow:hidden}
 #qfill{height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#7c3aed)}
+.q-meta{margin-top:6px;color:#cbd5e1;font-size:12px}
 
 /* EXP bar */
 #expBar{position:fixed;left:0;right:0;bottom:0;height:18px;background:#0b1224;border-top:1px solid var(--border);z-index:8}
