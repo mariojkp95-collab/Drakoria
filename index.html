@@ -4,9 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Dreamtale (Prototype)</title>
-  <link rel="stylesheet" href="style.css?v=5" />
+  <link rel="stylesheet" href="style.css?v=7" />
 </head>
 <body>
+
   <!-- Title Screen -->
   <div id="titleScreen" class="overlay show">
     <div class="panel">
@@ -19,65 +20,56 @@
       </div>
       <div id="optionsBox" class="options hidden">
         <label><input type="checkbox" id="optSfx" checked> Effetti sonori (placeholder)</label>
-        <label><input type="checkbox" id="optPathHighlight" checked> Evidenzia percorso</label>
       </div>
     </div>
   </div>
 
-  <header>
-    <div class="brand">
-      <strong>Dreamtale</strong>
-      <span class="muted">prototype</span>
-    </div>
-  </header>
-
-  <!-- HUD top -->
-  <div id="hudTop">
-    <div class="hud-left">
-      <div class="stat">
-        <span class="label">LV</span>
-        <span id="lvl" class="value">1</span>
-      </div>
-      <div class="hpbar">
-        <div id="hpfill"></div>
-        <span id="hptext">100/100</span>
+  <!-- HUD stile Nostale -->
+  <div id="hudNostale">
+    <div class="charbox">
+      <div class="portrait"></div>
+      <div class="bars">
+        <div class="bar hp"><span id="hptext">100/100</span><div id="hpfill"></div></div>
+        <div class="bar mp"><span id="mptext">100/100</span><div id="mpfill"></div></div>
+        <div class="info">
+          <span>LV <strong id="lvl">1</strong></span>
+          <span>🪙 <strong id="coins">0</strong></span>
+          <span>🍵 <strong id="pots">0</strong></span>
+        </div>
       </div>
     </div>
-
-    <div class="hud-center">
-      <div class="xpbar fancy">
-        <div id="xpfill"></div>
-        <span id="xptext">0%</span>
-      </div>
-    </div>
-
-    <div class="hud-right">
-      <div class="pills">
-        <div class="pill coin">🪙 <span id="coins">0</span></div>
-        <div class="pill pot">🍵 <span id="pots">0</span></div>
-      </div>
+    <div class="quickbar">
+      <button class="slot">I</button><button class="slot">II</button>
+      <button class="slot">III</button><button class="slot">IV</button>
+      <button class="slot">V</button>
     </div>
   </div>
 
   <main>
     <div id="wrap">
-      <!-- slot rapidi (mock HUD) -->
-      <div id="quickbar">
-        <button class="slot">I</button>
-        <button class="slot">II</button>
-        <button class="slot">III</button>
-        <button class="slot">IV</button>
-      </div>
-
       <canvas id="game" width="640" height="640"></canvas>
-
-      <p class="note">Tocca una casella per muoverti. Tappa uno slime adiacente per attaccarlo. Raccogli monete/pozioni. Fino al livello 99.</p>
+      <p class="note">Tocca una casella per muoverti. Tappa uno slime adiacente per attaccarlo.</p>
     </div>
   </main>
 
-  <!-- Banner Level Up -->
-  <div id="levelUpBanner">LEVEL UP!</div>
-<div id="tapDebug" style="position:fixed;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;padding:6px 10px;border-radius:8px;font-size:12px;z-index:999;display:none"></div>
-  <script src="game.js?v=6"></script>
+  <!-- EXP bar a tutta larghezza in basso (alla Nostale) -->
+  <div id="expBar">
+    <div id="xpfill"></div>
+    <span id="xptext">0%</span>
+  </div>
+
+  <!-- Overlay Morte -->
+  <div id="deathScreen" class="overlay">
+    <div class="panel">
+      <h2 class="logo">Sei Morto</h2>
+      <p class="subtitle">Hai perso il 10% delle monete. Vuoi respawnare?</p>
+      <div class="menu">
+        <button id="btnRespawn" class="btn primary">↻ Respawn</button>
+        <button id="btnMenu" class="btn">☰ Torna al Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js?v=7"></script>
 </body>
 </html>
